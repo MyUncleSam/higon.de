@@ -1,51 +1,211 @@
-// Pac-Man Animation
+// Pac-Man Animation (Authentisches Labyrinth-Design)
 window.PacManGame = class PacManGame {
     constructor(canvas, ctx) {
         this.canvas = canvas;
         this.ctx = ctx;
+
+        // Grid-System
+        this.cellSize = 25;
+        this.cols = Math.floor(canvas.width / this.cellSize);
+        this.rows = Math.floor(canvas.height / this.cellSize);
+
         this.pacman = {
-            x: 50,
-            y: canvas.height / 2,
-            radius: 25,
-            mouthAngle: 0,
+            gridX: 1,
+            gridY: 1,
+            x: this.cellSize * 1.5,
+            y: this.cellSize * 1.5,
+            radius: this.cellSize * 0.4,
             direction: 0, // 0=right, 1=down, 2=left, 3=up
-            speed: 3
+            nextDirection: 0,
+            speed: 2
         };
-        this.dots = [];
+
         this.ghosts = [];
+        this.dots = [];
+        this.powerPellets = [];
+        this.maze = [];
         this.animationFrame = null;
         this.animationVariant = Math.floor(Math.random() * 3);
+        this.powerMode = false;
+        this.powerModeTimer = 0;
 
         this.colors = {
             bg: '#000000',
+            wall: '#2121ff',
             pacman: '#ffff00',
-            dot: '#ffb8ae',
-            ghost: ['#ff0000', '#00ffff', '#ffb8ff', '#ffb852']
+            dot: '#ffb897',
+            powerPellet: '#ffb897',
+            ghost: ['#ff0000', '#00ffff', '#ffb8ff', '#ffb852'],
+            scaredGhost: '#2121de',
+            eyes: '#ffffff'
         };
 
+        this.initMaze();
         this.initDots();
         this.initGhosts();
     }
 
+    initMaze() {
+        // Erstelle ein klassisches Pac-Man ähnliches Labyrinth
+        // 0 = Weg, 1 = Wand
+        this.maze = [];
+        for (let y = 0; y < this.rows; y++) {
+            this.maze[y] = [];
+            for (let x = 0; x < this.cols; x++) {
+                // Äußere Wände
+                if (x === 0 || x === this.cols - 1 || y === 0 || y === this.rows - 1) {
+                    this.maze[y][x] = 1;
+                } else {
+                    this.maze[y][x] = 0;
+                }
+            }
+        }
+
+        // Interne Labyrinth-Struktur (symmetrisch wie im Original)
+        const wallPatterns = [
+            // Horizontale Blöcke
+            { x: 2, y: 2, w: 3, h: 2 },
+            { x: this.cols - 5, y: 2, w: 3, h: 2 },
+            { x: 2, y: this.rows - 4, w: 3, h: 2 },
+            { x: this.cols - 5, y: this.rows - 4, w: 3, h: 2 },
+
+            // Zentrale Strukturen
+            { x: Math.floor(this.cols / 2) - 3, y: Math.floor(this.rows / 2) - 2, w: 6, h: 1 },
+            { x: Math.floor(this.cols / 2) - 3, y: Math.floor(this.rows / 2) + 1, w: 6, h: 1 },
+
+            // Vertikale Blöcke
+            { x: 6, y: 5, w: 2, h: 4 },
+            { x: this.cols - 8, y: 5, w: 2, h: 4 },
+
+            // T-Formen
+            { x: Math.floor(this.cols / 2) - 1, y: 2, w: 2, h: 3 },
+            { x: Math.floor(this.cols / 2) - 1, y: this.rows - 5, w: 2, h: 3 },
+
+            // L-Formen
+            { x: 2, y: Math.floor(this.rows / 2) - 1, w: 4, h: 2 },
+            { x: this.cols - 6, y: Math.floor(this.rows / 2) - 1, w: 4, h: 2 },
+        ];
+
+        // Wände hinzufügen
+        for (let pattern of wallPatterns) {
+            for (let dy = 0; dy < pattern.h; dy++) {
+                for (let dx = 0; dx < pattern.w; dx++) {
+                    const px = pattern.x + dx;
+                    const py = pattern.y + dy;
+                    if (px >= 0 && px < this.cols && py >= 0 && py < this.rows) {
+                        this.maze[py][px] = 1;
+                    }
+                }
+            }
+        }
+    }
+
     initDots() {
-        const spacing = 40;
-        for (let x = 20; x < this.canvas.width; x += spacing) {
-            for (let y = 20; y < this.canvas.height; y += spacing) {
-                this.dots.push({ x, y, eaten: false });
+        // Platziere Dots auf allen freien Wegen
+        for (let y = 1; y < this.rows - 1; y++) {
+            for (let x = 1; x < this.cols - 1; x++) {
+                if (this.maze[y][x] === 0) {
+                    this.dots.push({
+                        gridX: x,
+                        gridY: y,
+                        x: x * this.cellSize + this.cellSize / 2,
+                        y: y * this.cellSize + this.cellSize / 2,
+                        eaten: false
+                    });
+                }
+            }
+        }
+
+        // Power Pellets in den Ecken
+        const pelletPositions = [
+            { x: 1, y: 1 },
+            { x: this.cols - 2, y: 1 },
+            { x: 1, y: this.rows - 2 },
+            { x: this.cols - 2, y: this.rows - 2 }
+        ];
+
+        for (let pos of pelletPositions) {
+            if (this.maze[pos.y] && this.maze[pos.y][pos.x] === 0) {
+                this.powerPellets.push({
+                    gridX: pos.x,
+                    gridY: pos.y,
+                    x: pos.x * this.cellSize + this.cellSize / 2,
+                    y: pos.y * this.cellSize + this.cellSize / 2,
+                    eaten: false
+                });
             }
         }
     }
 
     initGhosts() {
         const colors = this.colors.ghost;
+        const centerX = Math.floor(this.cols / 2);
+        const centerY = Math.floor(this.rows / 2);
+
         for (let i = 0; i < 4; i++) {
             this.ghosts.push({
-                x: this.canvas.width - 100 - i * 50,
-                y: this.canvas.height / 2 + (i % 2 === 0 ? -50 : 50),
+                gridX: centerX + (i % 2 === 0 ? -1 : 1),
+                gridY: centerY + (i < 2 ? -1 : 1),
+                x: (centerX + (i % 2 === 0 ? -1 : 1)) * this.cellSize + this.cellSize / 2,
+                y: (centerY + (i < 2 ? -1 : 1)) * this.cellSize + this.cellSize / 2,
                 color: colors[i],
-                direction: 2, // start moving left
-                speed: 2 + Math.random()
+                direction: Math.floor(Math.random() * 4),
+                speed: 1.5,
+                scared: false
             });
+        }
+    }
+
+    canMove(gridX, gridY) {
+        if (gridX < 0 || gridX >= this.cols || gridY < 0 || gridY >= this.rows) {
+            return false;
+        }
+        return this.maze[gridY][gridX] === 0;
+    }
+
+    drawMaze() {
+        const ctx = this.ctx;
+        ctx.strokeStyle = this.colors.wall;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+                if (this.maze[y][x] === 1) {
+                    const px = x * this.cellSize;
+                    const py = y * this.cellSize;
+
+                    // Zeichne nur die äußeren Kanten der Wände
+                    ctx.beginPath();
+
+                    // Prüfe angrenzende Zellen
+                    const top = y > 0 && this.maze[y - 1][x] === 0;
+                    const bottom = y < this.rows - 1 && this.maze[y + 1][x] === 0;
+                    const left = x > 0 && this.maze[y][x - 1] === 0;
+                    const right = x < this.cols - 1 && this.maze[y][x + 1] === 0;
+
+                    // Zeichne Ränder
+                    if (top) {
+                        ctx.moveTo(px, py);
+                        ctx.lineTo(px + this.cellSize, py);
+                    }
+                    if (bottom) {
+                        ctx.moveTo(px, py + this.cellSize);
+                        ctx.lineTo(px + this.cellSize, py + this.cellSize);
+                    }
+                    if (left) {
+                        ctx.moveTo(px, py);
+                        ctx.lineTo(px, py + this.cellSize);
+                    }
+                    if (right) {
+                        ctx.moveTo(px + this.cellSize, py);
+                        ctx.lineTo(px + this.cellSize, py + this.cellSize);
+                    }
+
+                    ctx.stroke();
+                }
+            }
         }
     }
 
@@ -54,7 +214,7 @@ window.PacManGame = class PacManGame {
         const p = this.pacman;
 
         // Mund-Animation
-        const mouthOpen = Math.abs(Math.sin(Date.now() / 100)) * 0.4;
+        const mouthOpen = Math.abs(Math.sin(Date.now() / 100)) * 0.5;
 
         ctx.fillStyle = this.colors.pacman;
         ctx.beginPath();
@@ -70,9 +230,9 @@ window.PacManGame = class PacManGame {
 
     drawGhost(ghost) {
         const ctx = this.ctx;
-        const r = 20;
+        const r = this.cellSize * 0.4;
 
-        ctx.fillStyle = ghost.color;
+        ctx.fillStyle = ghost.scared ? this.colors.scaredGhost : ghost.color;
 
         // Körper
         ctx.beginPath();
@@ -82,7 +242,7 @@ window.PacManGame = class PacManGame {
         // Wellenförmiger Boden
         const waves = 3;
         for (let i = 0; i < waves; i++) {
-            ctx.lineTo(ghost.x + r - (i + 0.5) * (2 * r / waves), ghost.y + r - 5);
+            ctx.lineTo(ghost.x + r - (i + 0.5) * (2 * r / waves), ghost.y + r - 4);
             ctx.lineTo(ghost.x + r - (i + 1) * (2 * r / waves), ghost.y + r);
         }
 
@@ -90,106 +250,230 @@ window.PacManGame = class PacManGame {
         ctx.fill();
 
         // Augen
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(ghost.x - 7, ghost.y - 5, 5, 0, Math.PI * 2);
-        ctx.arc(ghost.x + 7, ghost.y - 5, 5, 0, Math.PI * 2);
-        ctx.fill();
+        if (!ghost.scared) {
+            ctx.fillStyle = this.colors.eyes;
+            const eyeSize = r * 0.25;
+            const eyeY = ghost.y - r * 0.3;
 
-        ctx.fillStyle = '#0000ff';
-        ctx.beginPath();
-        ctx.arc(ghost.x - 7, ghost.y - 5, 2, 0, Math.PI * 2);
-        ctx.arc(ghost.x + 7, ghost.y - 5, 2, 0, Math.PI * 2);
-        ctx.fill();
+            ctx.beginPath();
+            ctx.arc(ghost.x - r * 0.35, eyeY, eyeSize, 0, Math.PI * 2);
+            ctx.arc(ghost.x + r * 0.35, eyeY, eyeSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pupillen
+            ctx.fillStyle = '#0000ff';
+            const pupilSize = eyeSize * 0.5;
+            ctx.beginPath();
+            ctx.arc(ghost.x - r * 0.35, eyeY, pupilSize, 0, Math.PI * 2);
+            ctx.arc(ghost.x + r * 0.35, eyeY, pupilSize, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Verängstigt - weiße Augen
+            ctx.fillStyle = this.colors.eyes;
+            ctx.beginPath();
+            ctx.arc(ghost.x - r * 0.3, ghost.y - r * 0.2, 3, 0, Math.PI * 2);
+            ctx.arc(ghost.x + r * 0.3, ghost.y - r * 0.2, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
-    drawDot(dot) {
-        if (dot.eaten) return;
-        this.ctx.fillStyle = this.colors.dot;
-        this.ctx.beginPath();
-        this.ctx.arc(dot.x, dot.y, 4, 0, Math.PI * 2);
-        this.ctx.fill();
-    }
+    drawDots() {
+        const ctx = this.ctx;
 
-    update() {
-        const p = this.pacman;
-
-        // Variante 0: Horizontal hin und her
-        // Variante 1: Im Kreis
-        // Variante 2: Geisterjagd
-        if (this.animationVariant === 0) {
-            p.x += p.speed;
-            p.direction = 0;
-            if (p.x > this.canvas.width + p.radius) {
-                p.x = -p.radius;
-                p.y = Math.random() * this.canvas.height;
+        // Normale Dots
+        ctx.fillStyle = this.colors.dot;
+        for (let dot of this.dots) {
+            if (!dot.eaten) {
+                ctx.beginPath();
+                ctx.arc(dot.x, dot.y, 3, 0, Math.PI * 2);
+                ctx.fill();
             }
-        } else if (this.animationVariant === 1) {
-            // Kreisbewegung
-            const centerX = this.canvas.width / 2;
-            const centerY = this.canvas.height / 2;
-            const radius = 150;
-            const angle = Date.now() / 1000;
+        }
 
-            p.x = centerX + Math.cos(angle) * radius;
-            p.y = centerY + Math.sin(angle) * radius;
+        // Power Pellets (blinken)
+        const pelletVisible = Math.floor(Date.now() / 200) % 2 === 0;
+        if (pelletVisible) {
+            ctx.fillStyle = this.colors.powerPellet;
+            for (let pellet of this.powerPellets) {
+                if (!pellet.eaten) {
+                    ctx.beginPath();
+                    ctx.arc(pellet.x, pellet.y, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+    }
 
-            // Richtung basierend auf Bewegung
-            const nextAngle = angle + 0.1;
-            const nextX = centerX + Math.cos(nextAngle) * radius;
-            if (nextX > p.x) p.direction = 0;
-            else p.direction = 2;
-        } else if (this.animationVariant === 2) {
-            // Pac-Man jagt Geister
-            if (this.ghosts.length > 0) {
-                const target = this.ghosts[0];
-                const dx = target.x - p.x;
-                const dy = target.y - p.y;
-                const angle = Math.atan2(dy, dx);
+    movePacman() {
+        const p = this.pacman;
+        const directions = [
+            { dx: 1, dy: 0 },   // right
+            { dx: 0, dy: 1 },   // down
+            { dx: -1, dy: 0 },  // left
+            { dx: 0, dy: -1 }   // up
+        ];
 
-                p.x += Math.cos(angle) * p.speed;
-                p.y += Math.sin(angle) * p.speed;
+        const dir = directions[p.direction];
+        p.x += dir.dx * p.speed;
+        p.y += dir.dy * p.speed;
 
-                // Richtung setzen
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    p.direction = dx > 0 ? 0 : 2;
+        // Update grid position
+        p.gridX = Math.floor(p.x / this.cellSize);
+        p.gridY = Math.floor(p.y / this.cellSize);
+
+        // Tunnel wrap-around
+        if (p.x < 0) p.x = this.canvas.width;
+        if (p.x > this.canvas.width) p.x = 0;
+
+        // Prüfe ob Richtungswechsel möglich
+        const nextDir = directions[p.nextDirection];
+        const nextGridX = p.gridX + nextDir.dx;
+        const nextGridY = p.gridY + nextDir.dy;
+
+        if (this.canMove(nextGridX, nextGridY)) {
+            p.direction = p.nextDirection;
+        }
+
+        // Prüfe ob aktuelle Richtung blockiert ist
+        const currentNextX = p.gridX + dir.dx;
+        const currentNextY = p.gridY + dir.dy;
+
+        if (!this.canMove(currentNextX, currentNextY)) {
+            // Snap to grid
+            p.x = p.gridX * this.cellSize + this.cellSize / 2;
+            p.y = p.gridY * this.cellSize + this.cellSize / 2;
+        }
+    }
+
+    moveGhost(ghost) {
+        const directions = [
+            { dx: 1, dy: 0 },   // right
+            { dx: 0, dy: 1 },   // down
+            { dx: -1, dy: 0 },  // left
+            { dx: 0, dy: -1 }   // up
+        ];
+
+        const dir = directions[ghost.direction];
+        ghost.x += dir.dx * ghost.speed;
+        ghost.y += dir.dy * ghost.speed;
+
+        ghost.gridX = Math.floor(ghost.x / this.cellSize);
+        ghost.gridY = Math.floor(ghost.y / this.cellSize);
+
+        // Tunnel wrap
+        if (ghost.x < 0) ghost.x = this.canvas.width;
+        if (ghost.x > this.canvas.width) ghost.x = 0;
+
+        // Richtungswechsel an Kreuzungen
+        const centerX = ghost.gridX * this.cellSize + this.cellSize / 2;
+        const centerY = ghost.gridY * this.cellSize + this.cellSize / 2;
+        const atCenter = Math.abs(ghost.x - centerX) < 5 && Math.abs(ghost.y - centerY) < 5;
+
+        if (atCenter && Math.random() < 0.1) {
+            // Finde mögliche Richtungen
+            const possibleDirs = [];
+            for (let i = 0; i < 4; i++) {
+                const testDir = directions[i];
+                if (this.canMove(ghost.gridX + testDir.dx, ghost.gridY + testDir.dy)) {
+                    possibleDirs.push(i);
+                }
+            }
+
+            if (possibleDirs.length > 0) {
+                if (this.animationVariant === 2 && !ghost.scared) {
+                    // Verfolge Pac-Man
+                    const dx = this.pacman.gridX - ghost.gridX;
+                    const dy = this.pacman.gridY - ghost.gridY;
+
+                    let bestDir = ghost.direction;
+                    let bestDist = Infinity;
+
+                    for (let testDir of possibleDirs) {
+                        const td = directions[testDir];
+                        const dist = Math.abs(dx - td.dx) + Math.abs(dy - td.dy);
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            bestDir = testDir;
+                        }
+                    }
+                    ghost.direction = bestDir;
                 } else {
-                    p.direction = dy > 0 ? 1 : 3;
+                    // Zufällige Richtung
+                    ghost.direction = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
                 }
             }
         }
 
+        // Prüfe Kollision mit Wand
+        const nextDir = directions[ghost.direction];
+        const nextX = ghost.gridX + nextDir.dx;
+        const nextY = ghost.gridY + nextDir.dy;
+
+        if (!this.canMove(nextX, nextY)) {
+            ghost.x = ghost.gridX * this.cellSize + this.cellSize / 2;
+            ghost.y = ghost.gridY * this.cellSize + this.cellSize / 2;
+        }
+    }
+
+    update() {
+        // Variante 0: Klassisches Labyrinth-Spiel
+        // Variante 1: Pac-Man folgt dem längsten Pfad
+        // Variante 2: Geister jagen aktiv Pac-Man
+
+        if (this.animationVariant === 0) {
+            // Zufällige Richtungsänderungen
+            if (Math.random() < 0.02) {
+                this.pacman.nextDirection = Math.floor(Math.random() * 4);
+            }
+        } else if (this.animationVariant === 1) {
+            // Folge dem Pfad
+            if (Math.random() < 0.03) {
+                this.pacman.nextDirection = (this.pacman.direction + (Math.random() < 0.5 ? 1 : 3)) % 4;
+            }
+        }
+
+        this.movePacman();
+
         // Geister bewegen
         for (let ghost of this.ghosts) {
-            if (this.animationVariant === 2) {
-                // Geister fliehen vor Pac-Man
-                const dx = ghost.x - p.x;
-                const dy = ghost.y - p.y;
-                const angle = Math.atan2(dy, dx);
-                ghost.x += Math.cos(angle) * ghost.speed;
-                ghost.y += Math.sin(angle) * ghost.speed;
-            } else {
-                ghost.x -= ghost.speed;
-                if (ghost.x < -30) {
-                    ghost.x = this.canvas.width + 30;
-                    ghost.y = Math.random() * this.canvas.height;
-                }
+            ghost.scared = this.powerMode;
+            this.moveGhost(ghost);
+        }
+
+        // Power Mode Timer
+        if (this.powerMode) {
+            this.powerModeTimer--;
+            if (this.powerModeTimer <= 0) {
+                this.powerMode = false;
             }
         }
 
         // Dots essen
         for (let dot of this.dots) {
             if (!dot.eaten) {
-                const dist = Math.hypot(p.x - dot.x, p.y - dot.y);
-                if (dist < p.radius) {
+                const dist = Math.hypot(this.pacman.x - dot.x, this.pacman.y - dot.y);
+                if (dist < this.cellSize * 0.5) {
                     dot.eaten = true;
                 }
             }
         }
 
-        // Dots zurücksetzen wenn alle gegessen
-        if (this.dots.every(d => d.eaten)) {
+        // Power Pellets essen
+        for (let pellet of this.powerPellets) {
+            if (!pellet.eaten) {
+                const dist = Math.hypot(this.pacman.x - pellet.x, this.pacman.y - pellet.y);
+                if (dist < this.cellSize * 0.5) {
+                    pellet.eaten = true;
+                    this.powerMode = true;
+                    this.powerModeTimer = 120; // ~2 Sekunden
+                }
+            }
+        }
+
+        // Level reset wenn alle Dots gegessen
+        if (this.dots.every(d => d.eaten) && this.powerPellets.every(p => p.eaten)) {
             this.dots.forEach(d => d.eaten = false);
+            this.powerPellets.forEach(p => p.eaten = false);
         }
     }
 
@@ -198,17 +482,18 @@ window.PacManGame = class PacManGame {
         this.ctx.fillStyle = this.colors.bg;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Dots zeichnen
-        for (let dot of this.dots) {
-            this.drawDot(dot);
-        }
+        // Labyrinth
+        this.drawMaze();
 
-        // Geister zeichnen
+        // Dots
+        this.drawDots();
+
+        // Geister
         for (let ghost of this.ghosts) {
             this.drawGhost(ghost);
         }
 
-        // Pac-Man zeichnen
+        // Pac-Man
         this.drawPacman();
     }
 

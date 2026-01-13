@@ -11,10 +11,11 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Liste aller verfügbaren Spiele
+    // Liste aller verfügbaren Spiele in fester Reihenfolge
+    // Beginnt immer mit Pac-Man, da es jeder kennt
     const games = [
-        window.SpaceInvadersGame,
         window.PacManGame,
+        window.SpaceInvadersGame,
         window.AsteroidsGame,
         window.GalagaGame,
         window.DonkeyKongGame,
@@ -23,7 +24,7 @@
     ];
 
     let currentGame = null;
-    let currentGameIndex = 0;
+    let currentGameIndex = -1; // Startet bei -1, damit das erste Spiel Index 0 hat
 
     // Spiel wechseln
     function switchGame() {
@@ -35,8 +36,8 @@
         // Canvas leeren
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Neues Spiel starten
-        currentGameIndex = Math.floor(Math.random() * games.length);
+        // Zum nächsten Spiel in der Reihenfolge wechseln
+        currentGameIndex = (currentGameIndex + 1) % games.length;
         const GameClass = games[currentGameIndex];
 
         if (GameClass) {
