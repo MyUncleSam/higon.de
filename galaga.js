@@ -46,7 +46,7 @@ window.GalagaGame = class GalagaGame {
     }
 
     initEnemies() {
-        const rows = 3;
+        const rows = 4;
         const cols = 6;
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
@@ -98,6 +98,16 @@ window.GalagaGame = class GalagaGame {
                         break;
                 }
 
+                // Verschiedene Gegnertypen: Boss (oberste Reihe), Butterfly (2. Reihe), Bee (untere Reihen)
+                let enemyType;
+                if (row === 0) {
+                    enemyType = 'boss';
+                } else if (row === 1) {
+                    enemyType = 'butterfly';
+                } else {
+                    enemyType = 'bee';
+                }
+
                 this.enemies.push({
                     x: pathStartX,
                     y: pathStartY,
@@ -110,7 +120,7 @@ window.GalagaGame = class GalagaGame {
                     startY: pathStartY,
                     diveAngle: 0,
                     alive: true,
-                    type: row === 0 ? 'boss' : 'soldier'
+                    type: enemyType
                 });
             }
         }
@@ -150,43 +160,221 @@ window.GalagaGame = class GalagaGame {
         const ctx = this.ctx;
         const x = enemy.x;
         const y = enemy.y;
-        const size = enemy.type === 'boss' ? this.bossSize : this.enemySize;
         const frame = Math.floor(Date.now() / 200) % 2;
 
-        // Farbe basierend auf Typ
         if (enemy.type === 'boss') {
-            ctx.fillStyle = '#ffaa00';
-            ctx.strokeStyle = '#ffff00';
+            this.drawBossGalaga(ctx, x, y, frame);
+        } else if (enemy.type === 'butterfly') {
+            this.drawButterfly(ctx, x, y, frame);
         } else {
-            ctx.fillStyle = this.colors.enemy;
-            ctx.strokeStyle = this.colors.enemyAccent;
+            this.drawBee(ctx, x, y, frame);
         }
-        ctx.lineWidth = Math.max(1, size * 0.06);
+    }
 
-        // Körper
+    // Boss Galaga - Großer gelber Anführer
+    drawBossGalaga(ctx, x, y, frame) {
+        const size = this.bossSize;
+
+        // Hauptkörper (gelb-orange)
+        ctx.fillStyle = '#FFD700';
+        ctx.strokeStyle = '#FF8C00';
+        ctx.lineWidth = 2;
+
+        // Kopf
+        ctx.fillStyle = '#FFD700';
         ctx.beginPath();
-        ctx.ellipse(x, y, size * 0.6, size * 0.8, 0, 0, Math.PI * 2);
+        ctx.arc(x, y - size * 0.3, size * 0.5, 0, Math.PI * 2);
         ctx.fill();
-
-        // Flügel (animiert)
-        const wingSpread = frame === 0 ? 1.1 : 0.8;
-        ctx.beginPath();
-        ctx.moveTo(x - size * wingSpread, y - size * 0.3);
-        ctx.lineTo(x - size * 0.3, y);
-        ctx.lineTo(x - size * wingSpread, y + size * 0.5);
         ctx.stroke();
 
+        // Körper
+        ctx.fillStyle = '#FFA500';
         ctx.beginPath();
-        ctx.moveTo(x + size * wingSpread, y - size * 0.3);
-        ctx.lineTo(x + size * 0.3, y);
-        ctx.lineTo(x + size * wingSpread, y + size * 0.5);
+        ctx.ellipse(x, y + size * 0.2, size * 0.6, size * 0.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Antennen
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = Math.max(2, size * 0.08);
+        ctx.beginPath();
+        ctx.moveTo(x - size * 0.3, y - size * 0.6);
+        ctx.lineTo(x - size * 0.15, y - size * 0.4);
+        ctx.moveTo(x + size * 0.3, y - size * 0.6);
+        ctx.lineTo(x + size * 0.15, y - size * 0.4);
+        ctx.stroke();
+
+        // Antennenspitzen
+        ctx.fillStyle = '#FF0000';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.3, y - size * 0.6, size * 0.1, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.3, y - size * 0.6, size * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Große Flügel (animiert)
+        const wingAngle = frame === 0 ? 0 : Math.PI / 16;
+        ctx.fillStyle = '#87CEEB';
+
+        // Linker Flügel
+        ctx.save();
+        ctx.translate(x - size * 0.6, y);
+        ctx.rotate(-wingAngle);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 0.5, size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#4682B4';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        // Rechter Flügel
+        ctx.save();
+        ctx.translate(x + size * 0.6, y);
+        ctx.rotate(wingAngle);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 0.5, size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#4682B4';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        // Augen
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.2, y - size * 0.35, size * 0.12, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.2, y - size * 0.35, size * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pupillen (rot für bösartigen Look)
+        ctx.fillStyle = '#FF0000';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.2, y - size * 0.35, size * 0.06, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.2, y - size * 0.35, size * 0.06, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Butterfly - Roter Schmetterlings-Feind
+    drawButterfly(ctx, x, y, frame) {
+        const size = this.enemySize;
+
+        // Körper (rot)
+        ctx.fillStyle = '#DC143C';
+        ctx.strokeStyle = '#8B0000';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.ellipse(x, y, size * 0.4, size * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Schmetterlingsflügel (animiert)
+        const wingSpread = frame === 0 ? 1.0 : 0.85;
+
+        // Obere Flügel
+        ctx.fillStyle = '#FF4500';
+
+        // Linker oberer Flügel
+        ctx.beginPath();
+        ctx.ellipse(x - size * 0.5 * wingSpread, y - size * 0.2, size * 0.45, size * 0.35, -Math.PI / 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Rechter oberer Flügel
+        ctx.beginPath();
+        ctx.ellipse(x + size * 0.5 * wingSpread, y - size * 0.2, size * 0.45, size * 0.35, Math.PI / 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Untere Flügel (kleiner)
+        ctx.fillStyle = '#FF6347';
+
+        // Linker unterer Flügel
+        ctx.beginPath();
+        ctx.ellipse(x - size * 0.4 * wingSpread, y + size * 0.3, size * 0.35, size * 0.25, Math.PI / 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Rechter unterer Flügel
+        ctx.beginPath();
+        ctx.ellipse(x + size * 0.4 * wingSpread, y + size * 0.3, size * 0.35, size * 0.25, -Math.PI / 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Flügeldetails (weiße Punkte)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.5 * wingSpread, y - size * 0.2, size * 0.1, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.5 * wingSpread, y - size * 0.2, size * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Augen
+        ctx.fillStyle = '#FFFF00';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.15, y - size * 0.1, size * 0.15, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.15, y - size * 0.1, size * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.15, y - size * 0.1, size * 0.08, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.15, y - size * 0.1, size * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Bee - Blauer Bienen-Feind
+    drawBee(ctx, x, y, frame) {
+        const size = this.enemySize;
+
+        // Körper mit Streifen (blau-weiß)
+        ctx.fillStyle = '#1E90FF';
+        ctx.strokeStyle = '#000080';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.ellipse(x, y, size * 0.35, size * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Streifen
+        ctx.strokeStyle = '#87CEEB';
+        ctx.lineWidth = Math.max(2, size * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(x - size * 0.3, y - size * 0.2);
+        ctx.lineTo(x + size * 0.3, y - size * 0.2);
+        ctx.moveTo(x - size * 0.3, y + size * 0.1);
+        ctx.lineTo(x + size * 0.3, y + size * 0.1);
+        ctx.stroke();
+
+        // Flügel (einfacher als Schmetterling, animiert)
+        const wingY = frame === 0 ? -size * 0.6 : -size * 0.5;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.strokeStyle = '#B0C4DE';
+        ctx.lineWidth = 1;
+
+        // Linker Flügel
+        ctx.beginPath();
+        ctx.ellipse(x - size * 0.4, y + wingY * 0.5, size * 0.3, size * 0.5, -Math.PI / 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Rechter Flügel
+        ctx.beginPath();
+        ctx.ellipse(x + size * 0.4, y + wingY * 0.5, size * 0.3, size * 0.5, Math.PI / 4, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
 
         // Augen
-        ctx.fillStyle = enemy.type === 'boss' ? '#ff0000' : this.colors.enemyAccent;
+        ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(x - size * 0.2, y - size * 0.2, size * 0.15, 0, Math.PI * 2);
-        ctx.arc(x + size * 0.2, y - size * 0.2, size * 0.15, 0, Math.PI * 2);
+        ctx.arc(x - size * 0.15, y - size * 0.15, size * 0.12, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.15, y - size * 0.15, size * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.15, y - size * 0.15, size * 0.06, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.15, y - size * 0.15, size * 0.06, 0, Math.PI * 2);
         ctx.fill();
     }
 
