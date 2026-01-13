@@ -21,6 +21,12 @@ window.GalagaGame = class GalagaGame {
         this.animationVariant = Math.floor(Math.random() * 3);
         this.time = 0;
 
+        // Bewegungssteuerung für menschenähnliche Zielverfolgung
+        this.playerVelocity = 0;
+        this.targetEnemy = null;
+        this.targetX = canvas.width / 2;
+        this.speedChangeTimer = 0;
+
         this.colors = {
             bg: '#000033',
             player: '#00ff00',
@@ -32,7 +38,32 @@ window.GalagaGame = class GalagaGame {
 
         this.stars = [];
         this.initStars();
-        this.initEnemies();
+        this.initEnemies(); // Muss vor pickNewSpeed kommen da es formationMinX/MaxX setzt
+
+        // Starte Spieler in der Mitte des Formation-Bereichs
+        this.playerX = (this.formationMinX + this.formationMaxX) / 2;
+        this.pickNewTargetEnemy();
+    }
+
+    pickNewTargetEnemy() {
+        // Finde alle lebenden Feinde
+        const aliveEnemies = this.enemies.filter(e => e.alive);
+
+        if (aliveEnemies.length === 0) {
+            this.targetEnemy = null;
+            this.targetX = this.canvas.width / 2;
+            return;
+        }
+
+        // Wähle zufälligen Feind als Ziel
+        this.targetEnemy = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+
+        // Ziel-X-Position ist die X-Position des Feindes (mit leichter Variation)
+        const variation = (Math.random() - 0.5) * this.enemySize * 0.5;
+        this.targetX = this.targetEnemy.x + variation;
+
+        // Halte im Formation-Bereich
+        this.targetX = Math.max(this.formationMinX, Math.min(this.formationMaxX, this.targetX));
     }
 
     initStars() {
@@ -53,6 +84,10 @@ window.GalagaGame = class GalagaGame {
         const startY = this.canvas.height * 0.15;
         const spacingX = Math.max(50, this.bossSize * 1.8);
         const spacingY = Math.max(45, this.bossSize * 1.6);
+
+        // Berechne Formation-Grenzen für Spieler-Bewegungsbereich
+        this.formationMinX = centerX - (cols - 1) * spacingX / 2;
+        this.formationMaxX = centerX + (cols - 1) * spacingX / 2;
 
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
@@ -472,18 +507,42 @@ window.GalagaGame = class GalagaGame {
             }
         }
 
-        // Spieler bewegen
-        const playerSpeed = Math.max(2, this.playerSize * 0.15);
-        const playerRange = Math.max(180, this.canvas.width * 0.35);
+        // Menschenähnliche Spieler Bewegung - bewege zu Ziel-Feind
+        const distanceToTarget = Math.abs(this.targetX - this.playerX);
 
-        if (this.animationVariant === 0) {
-            this.playerX += Math.sin(this.time * 0.02) * playerSpeed;
-        } else if (this.animationVariant === 1) {
-            this.playerX = this.canvas.width / 2 + Math.sin(this.time * 0.03) * playerRange;
-        } else {
-            this.playerX += playerSpeed * 1.3;
-            if (this.playerX > this.canvas.width) this.playerX = 0;
+        // Wenn Ziel erreicht oder Ziel-Feind tot, wähle neues Ziel
+        if (distanceToTarget < 5 || (this.targetEnemy && !this.targetEnemy.alive)) {
+            this.pickNewTargetEnemy();
         }
+
+        // Aktualisiere Ziel-Position wenn Feind sich bewegt (bei Spirale/Welle)
+        if (this.targetEnemy && this.targetEnemy.alive) {
+            const variation = (Math.random() - 0.5) * this.enemySize * 0.3;
+            this.targetX = this.targetEnemy.x + variation;
+            this.targetX = Math.max(this.formationMinX, Math.min(this.formationMaxX, this.targetX));
+        }
+
+        // Berechne Geschwindigkeit basierend auf Distanz zum Ziel
+        const direction = Math.sign(this.targetX - this.playerX);
+        const baseSpeed = Math.max(2, this.playerSize * 0.15);
+
+        let targetVelocity = 0;
+        if (distanceToTarget > 5) {
+            // Geschwindigkeit basiert auf Distanz, mit Maximum
+            const maxSpeed = baseSpeed * (1.2 + Math.random() * 0.6); // Variable Geschwindigkeit
+            const speedFactor = Math.min(1, distanceToTarget / 100); // Langsamer wenn nah am Ziel
+            targetVelocity = direction * maxSpeed * speedFactor;
+        }
+
+        // Sanfte Beschleunigung/Verzögerung
+        const accelRate = 0.12;
+        this.playerVelocity += (targetVelocity - this.playerVelocity) * accelRate;
+
+        // Spieler bewegen
+        this.playerX += this.playerVelocity;
+
+        // Im Formation-Bereich halten
+        this.playerX = Math.max(this.formationMinX, Math.min(this.formationMaxX, this.playerX));
 
         // Schüsse
         if (Math.random() < 0.06) {
