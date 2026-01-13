@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>higon.de - High Graphics ON</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            max-width: 800px;
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .emoji-container {
+            font-size: 120px;
+            margin-bottom: 30px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 20px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+            font-style: italic;
+        }
+
+        .construction-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            margin-bottom: 30px;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+        }
+
+        .content-text {
+            font-size: 18px;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .highlight {
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        footer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        footer a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        footer a:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateX(-5px);
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            font-size: 20px;
+            opacity: 0.3;
+            animation: particleFloat 15s infinite ease-in-out;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+            33% {
+                transform: translate(100px, -100px) rotate(120deg);
+            }
+            66% {
+                transform: translate(-50px, 100px) rotate(240deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 36px;
+            }
+
+            .emoji-container {
+                font-size: 80px;
+            }
+
+            .content-text {
+                font-size: 16px;
+                padding: 20px;
+            }
+
+            footer {
+                position: static;
+                margin-top: 40px;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+
+    <div class="container">
+        <div class="logo">higon.de</div>
+        <div class="subtitle">High Graphics ON</div>
+
+        <div class="emoji-container">🎮</div>
+
+        <div class="construction-badge">
+            🚧 Seite im Aufbau 🚧
+        </div>
+
+        <div class="content-text">
+            <p>
+                Willkommen bei <span class="highlight">higon.de</span> – Ihrer Anlaufstelle für Gaming in seiner schönsten Form!
+            </p>
+            <p style="margin-top: 20px;">
+                Videospiele sind mehr als nur Unterhaltung – sie sind Kunstwerke. Um ein Spiel in seiner
+                <span class="highlight">Gänze und vollem Umfang</span> zu erleben, sollten Sie es mit
+                <span class="highlight">höchsten Grafikdetails</span> spielen. Nur so können Sie die Vision
+                der Entwickler wirklich erfassen und in die Spielwelt vollständig eintauchen.
+            </p>
+            <p style="margin-top: 20px;">
+                💎 <span class="highlight">High Graphics ON</span> – Erleben Sie Gaming, wie es gemeint ist! 💎
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        <a href="https://ruepp.info/imprint.html" target="_blank">📜 Impressum &amp; Urheberrecht</a>
+        <a href="https://ruepp.info/dataprivacy.html" target="_blank">🔒 Datenschutzerklärung</a>
+        <a href="https://form.ruepp.info/forms/ruepp-info-contact-form/0" target="_blank">✉️ Kontaktformular</a>
+    </footer>
+
+    <script>
+        // Erstelle schwebende Emoji-Partikel im Hintergrund
+        const particlesContainer = document.getElementById('particles');
+        const emojis = ['🎮', '🕹️', '💻', '🖥️', '⚡', '🌟', '💎', '🎯'];
+
+        function createParticle() {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.top = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 5 + 's';
+            particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+            particlesContainer.appendChild(particle);
+        }
+
+        // Erstelle 15 Partikel
+        for (let i = 0; i < 15; i++) {
+            createParticle();
+        }
+
+        // Füge einen pulsierenden Effekt zum Gaming-Emoji hinzu
+        const emojiContainer = document.querySelector('.emoji-container');
+        let scale = 1;
+        let growing = true;
+
+        setInterval(() => {
+            if (growing) {
+                scale += 0.005;
+                if (scale >= 1.1) growing = false;
+            } else {
+                scale -= 0.005;
+                if (scale <= 0.9) growing = true;
+            }
+            emojiContainer.style.transform = `scale(${scale})`;
+        }, 50);
+
+        // Füge Interaktivität zum Gaming-Emoji hinzu
+        emojiContainer.addEventListener('click', function() {
+            this.style.animation = 'none';
+            setTimeout(() => {
+                this.style.animation = 'float 3s ease-in-out infinite';
+            }, 10);
+
+            // Erstelle einen "Funken"-Effekt
+            for (let i = 0; i < 8; i++) {
+                const spark = document.createElement('div');
+                spark.textContent = '✨';
+                spark.style.position = 'absolute';
+                spark.style.left = '50%';
+                spark.style.top = '50%';
+                spark.style.fontSize = '24px';
+                spark.style.pointerEvents = 'none';
+                document.body.appendChild(spark);
+
+                const angle = (i / 8) * Math.PI * 2;
+                const distance = 100;
+                const targetX = Math.cos(angle) * distance;
+                const targetY = Math.sin(angle) * distance;
+
+                spark.animate([
+                    { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+                    { transform: `translate(calc(-50% + ${targetX}px), calc(-50% + ${targetY}px)) scale(0)`, opacity: 0 }
+                ], {
+                    duration: 1000,
+                    easing: 'ease-out'
+                }).onfinish = () => spark.remove();
+            }
+        });
+    </script>
+</body>
+</html>
