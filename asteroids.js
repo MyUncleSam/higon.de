@@ -16,6 +16,14 @@ window.AsteroidsGame = class AsteroidsGame {
         this.animationFrame = null;
         this.animationVariant = Math.floor(Math.random() * 3);
 
+        // Variables für menschenähnliche Bewegung
+        this.rotationSpeed = 0;
+        this.targetRotationSpeed = 0;
+        this.rotationChangeTimer = 0;
+        this.thrustTimer = 0;
+        this.nextThrustDuration = 0;
+        this.nextRestDuration = 0;
+
         this.colors = {
             bg: '#000000',
             ship: '#ffffff',
@@ -24,6 +32,8 @@ window.AsteroidsGame = class AsteroidsGame {
         };
 
         this.initAsteroids();
+        this.pickNewRotationTarget();
+        this.pickNewThrustPattern();
     }
 
     initAsteroids() {
@@ -78,11 +88,14 @@ window.AsteroidsGame = class AsteroidsGame {
         ctx.stroke();
 
         // Triebwerks-Effekt (wenn beschleunigt)
-        if (this.animationVariant === 1 || Math.random() < 0.1) {
+        const isThrusting = this.thrustTimer < this.nextThrustDuration;
+        if (isThrusting) {
             ctx.fillStyle = '#ff6600';
             ctx.beginPath();
             ctx.moveTo(-s.size * 0.5, -s.size * 0.3);
-            ctx.lineTo(-s.size * 1.5, 0);
+            // Flamme flackert leicht
+            const flameLength = 1.3 + Math.random() * 0.4;
+            ctx.lineTo(-s.size * flameLength, 0);
             ctx.lineTo(-s.size * 0.5, s.size * 0.3);
             ctx.closePath();
             ctx.fill();
@@ -126,66 +139,91 @@ window.AsteroidsGame = class AsteroidsGame {
         this.ctx.fill();
     }
 
+    // Wähle eine neue Ziel-Rotationsgeschwindigkeit
+    pickNewRotationTarget() {
+        // Zufällige Rotationsgeschwindigkeit (kann auch negativ sein für Richtungswechsel)
+        this.targetRotationSpeed = (Math.random() - 0.5) * 0.12;
+        // Wie lange bis zur nächsten Änderung (60-180 Frames)
+        this.rotationChangeTimer = 60 + Math.random() * 120;
+    }
+
+    // Wähle ein neues Schub-Muster
+    pickNewThrustPattern() {
+        // Wie lange soll geschoben werden (20-80 Frames)
+        this.nextThrustDuration = 20 + Math.random() * 60;
+        // Wie lange Pause danach (10-60 Frames)
+        this.nextRestDuration = 10 + Math.random() * 50;
+        this.thrustTimer = 0;
+    }
+
     update() {
         const s = this.ship;
 
-        // Variante 0: Drehen und schießen
-        // Variante 1: Durchs Feld fliegen
-        // Variante 2: Kreisförmige Bewegung
-        if (this.animationVariant === 0) {
-            s.angle += 0.05;
-            if (Math.random() < 0.05) {
-                this.bullets.push({
-                    x: s.x + Math.cos(s.angle) * s.size,
-                    y: s.y + Math.sin(s.angle) * s.size,
-                    vx: Math.cos(s.angle) * 5,
-                    vy: Math.sin(s.angle) * 5,
-                    life: 60
-                });
-            }
-        } else if (this.animationVariant === 1) {
-            // Beschleunigung in Blickrichtung
-            s.angle += 0.02;
-            s.vx += Math.cos(s.angle) * 0.1;
-            s.vy += Math.sin(s.angle) * 0.1;
+        // Menschenähnliche Rotation mit sanften Übergängen
+        this.rotationChangeTimer--;
+        if (this.rotationChangeTimer <= 0) {
+            this.pickNewRotationTarget();
+        }
 
-            // Geschwindigkeit begrenzen
-            const speed = Math.hypot(s.vx, s.vy);
-            if (speed > 5) {
-                s.vx = (s.vx / speed) * 5;
-                s.vy = (s.vy / speed) * 5;
-            }
+        // Sanft zur Ziel-Rotationsgeschwindigkeit interpolieren
+        const rotationLerp = 0.05;
+        this.rotationSpeed += (this.targetRotationSpeed - this.rotationSpeed) * rotationLerp;
+        s.angle += this.rotationSpeed;
 
-            if (Math.random() < 0.08) {
-                this.bullets.push({
-                    x: s.x + Math.cos(s.angle) * s.size,
-                    y: s.y + Math.sin(s.angle) * s.size,
-                    vx: Math.cos(s.angle) * 6 + s.vx,
-                    vy: Math.sin(s.angle) * 6 + s.vy,
-                    life: 60
-                });
-            }
-        } else if (this.animationVariant === 2) {
-            const centerX = this.canvas.width / 2;
-            const centerY = this.canvas.height / 2;
-            const radius = 150;
-            const angle = Date.now() / 1000;
+        // Menschenähnliches Schub-Muster (Phasen von Schub und Pause)
+        this.thrustTimer++;
+        let shouldThrust = false;
 
-            s.x = centerX + Math.cos(angle) * radius;
-            s.y = centerY + Math.sin(angle) * radius;
-            s.angle = angle + Math.PI / 2;
-            s.vx = 0;
-            s.vy = 0;
+        if (this.thrustTimer < this.nextThrustDuration) {
+            // Schub-Phase
+            shouldThrust = true;
+        } else if (this.thrustTimer >= this.nextThrustDuration + this.nextRestDuration) {
+            // Neues Muster wählen
+            this.pickNewThrustPattern();
+        }
 
-            if (Math.random() < 0.06) {
-                this.bullets.push({
-                    x: s.x,
-                    y: s.y,
-                    vx: Math.cos(s.angle) * 5,
-                    vy: Math.sin(s.angle) * 5,
-                    life: 60
-                });
-            }
+        // Schub anwenden wenn in Schub-Phase
+        if (shouldThrust) {
+            const thrustStrength = 0.08 + Math.random() * 0.04; // Leicht variierende Stärke
+            s.vx += Math.cos(s.angle) * thrustStrength;
+            s.vy += Math.sin(s.angle) * thrustStrength;
+        }
+
+        // Geschwindigkeit begrenzen
+        const speed = Math.hypot(s.vx, s.vy);
+        const maxSpeed = 5;
+        if (speed > maxSpeed) {
+            s.vx = (s.vx / speed) * maxSpeed;
+            s.vy = (s.vy / speed) * maxSpeed;
+        }
+
+        // Schießen in Blickrichtung (variiert je nach animationVariant)
+        let shootChance = 0.03;
+        if (this.animationVariant === 1) shootChance = 0.05;
+        if (this.animationVariant === 2) shootChance = 0.04;
+
+        if (Math.random() < shootChance) {
+            this.bullets.push({
+                x: s.x + Math.cos(s.angle) * s.size,
+                y: s.y + Math.sin(s.angle) * s.size,
+                vx: Math.cos(s.angle) * 6 + s.vx,
+                vy: Math.sin(s.angle) * 6 + s.vy,
+                life: 60
+            });
+        }
+
+        // Dämpfung der Geschwindigkeit (Reibung im Weltraum ist unrealistisch, aber macht es interessanter)
+        s.vx *= 0.99;
+        s.vy *= 0.99;
+
+        // Stelle sicher, dass das Schiff immer eine Mindestgeschwindigkeit hat
+        const currentSpeed = Math.hypot(s.vx, s.vy);
+        const minSpeed = 3.5;
+
+        if (currentSpeed < minSpeed) {
+            // Gib dem Schiff einen Schub in Blickrichtung, um es in Bewegung zu halten
+            s.vx += Math.cos(s.angle) * 0.2;
+            s.vy += Math.sin(s.angle) * 0.2;
         }
 
         // Schiff bewegen
