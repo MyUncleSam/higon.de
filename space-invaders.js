@@ -17,6 +17,12 @@ window.SpaceInvadersGame = class SpaceInvadersGame {
         this.alienDirection = 1;
         this.animationVariant = Math.floor(Math.random() * 3);
 
+        // Menschenähnliche Bewegung
+        this.playerVelocity = 0;
+        this.targetPosition = canvas.width / 2;
+        this.moveTimer = 0;
+        this.isMoving = true;
+
         this.colors = {
             bg: '#000',
             alien: '#00ff00',
@@ -25,6 +31,7 @@ window.SpaceInvadersGame = class SpaceInvadersGame {
         };
 
         this.initAliens();
+        this.pickNewTargetPosition();
     }
 
     initAliens() {
@@ -45,6 +52,35 @@ window.SpaceInvadersGame = class SpaceInvadersGame {
                 });
             }
         }
+    }
+
+    pickNewTargetPosition() {
+        // Wähle eine neue Zielposition im spielbaren Bereich
+        const minX = this.playerSize * 2;
+        const maxX = this.canvas.width - this.playerSize * 2;
+
+        // Verschiedene Bewegungsmuster
+        const pattern = Math.random();
+
+        if (pattern < 0.3) {
+            // Kurze Bewegung (nahe der aktuellen Position)
+            const range = this.canvas.width * 0.15;
+            this.targetPosition = this.playerX + (Math.random() - 0.5) * range;
+        } else if (pattern < 0.6) {
+            // Mittlere Bewegung
+            const range = this.canvas.width * 0.3;
+            this.targetPosition = this.playerX + (Math.random() - 0.5) * range;
+        } else {
+            // Große Bewegung (zu einer anderen Seite)
+            this.targetPosition = minX + Math.random() * (maxX - minX);
+        }
+
+        // Im spielbaren Bereich halten
+        this.targetPosition = Math.max(minX, Math.min(maxX, this.targetPosition));
+
+        // Bewegungsdauer basierend auf Distanz
+        const distance = Math.abs(this.targetPosition - this.playerX);
+        this.moveTimer = distance / 2; // Proportional zur Distanz
     }
 
     drawAlien(alien) {
@@ -142,34 +178,50 @@ window.SpaceInvadersGame = class SpaceInvadersGame {
             return bullet.y > 0;
         });
 
-        // Spieler Bewegung
-        const playerSpeed = Math.max(2, this.playerSize * 0.1);
-        if (this.animationVariant === 0) {
-            if (Math.random() < 0.05) {
-                this.bullets.push({ x: this.playerX, y: this.canvas.height - this.canvas.height * 0.1 });
-            }
-        } else if (this.animationVariant === 1) {
-            this.playerX += this.playerDirection * playerSpeed;
+        // Menschenähnliche Spieler Bewegung mit Zielverfolgung
+        this.moveTimer--;
 
-            if (this.playerX <= this.playerSize || this.playerX >= this.canvas.width - this.playerSize) {
-                this.playerDirection *= -1;
-            }
+        // Neue Zielposition wählen wenn Timer abgelaufen oder Ziel erreicht
+        const distanceToTarget = Math.abs(this.targetPosition - this.playerX);
+        if (this.moveTimer <= 0 || distanceToTarget < 2) {
+            this.pickNewTargetPosition();
 
-            if (Math.random() < 0.1) {
-                this.bullets.push({ x: this.playerX, y: this.canvas.height - this.canvas.height * 0.1 });
+            // Gelegentlich kurze Pause vor nächster Bewegung
+            if (Math.random() < 0.15) {
+                this.moveTimer = 10 + Math.random() * 30; // Kurze Pause
+                this.targetPosition = this.playerX; // Bleib stehen
             }
-        } else if (this.animationVariant === 2) {
-            const targetAlien = this.aliens.find(a => a.alive);
-            if (targetAlien) {
-                const diff = targetAlien.x - this.playerX;
-                this.playerX += Math.sign(diff) * (playerSpeed * 1.5);
+        }
 
-                this.playerX = Math.max(this.playerSize, Math.min(this.canvas.width - this.playerSize, this.playerX));
+        // Berechne Beschleunigung zur Zielposition
+        const direction = Math.sign(this.targetPosition - this.playerX);
+        const baseAccel = Math.max(2, this.playerSize * 0.1) * 0.3;
 
-                if (Math.random() < 0.08) {
-                    this.bullets.push({ x: this.playerX, y: this.canvas.height - this.canvas.height * 0.1 });
-                }
-            }
+        // Geschwindigkeit basierend auf Distanz zum Ziel anpassen
+        let targetVelocity = 0;
+        if (distanceToTarget > 5) {
+            // Geschwindigkeit nimmt mit Distanz zu, hat aber ein Maximum
+            const maxSpeed = Math.max(3, this.playerSize * 0.15);
+            targetVelocity = direction * Math.min(maxSpeed, distanceToTarget * 0.1);
+        }
+
+        // Sanfte Interpolation zur Zielgeschwindigkeit (Beschleunigung/Verzögerung)
+        const accelRate = 0.15;
+        this.playerVelocity += (targetVelocity - this.playerVelocity) * accelRate;
+
+        // Spieler bewegen
+        this.playerX += this.playerVelocity;
+
+        // Spieler im Bildschirm halten
+        this.playerX = Math.max(this.playerSize, Math.min(this.canvas.width - this.playerSize, this.playerX));
+
+        // Schießen mit variabler Frequenz
+        let shootChance = 0.06;
+        if (this.animationVariant === 1) shootChance = 0.08;
+        if (this.animationVariant === 2) shootChance = 0.1;
+
+        if (Math.random() < shootChance) {
+            this.bullets.push({ x: this.playerX, y: this.canvas.height - this.canvas.height * 0.1 });
         }
 
         // Kollisionserkennung
