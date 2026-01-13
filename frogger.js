@@ -3,17 +3,27 @@ window.FroggerGame = class FroggerGame {
     constructor(canvas, ctx) {
         this.canvas = canvas;
         this.ctx = ctx;
+
+        // Grid-System für Hüpfbewegungen
+        this.gridSize = 50;
+
         this.frog = {
-            x: canvas.width / 2,
-            y: canvas.height - 40,
+            x: Math.floor(canvas.width / 2 / this.gridSize) * this.gridSize,
+            y: canvas.height - 60,
+            targetX: Math.floor(canvas.width / 2 / this.gridSize) * this.gridSize,
+            targetY: canvas.height - 60,
             size: 25,
-            direction: 0 // 0=up, 1=right, 2=down, 3=left
+            direction: 0, // 0=up, 1=right, 2=down, 3=left
+            hopping: false,
+            hopProgress: 0
         };
+
         this.cars = [];
         this.logs = [];
         this.animationFrame = null;
         this.animationVariant = Math.floor(Math.random() * 3);
         this.time = 0;
+        this.jumpCooldown = 0;
 
         this.colors = {
             bg: '#000000',
@@ -68,13 +78,63 @@ window.FroggerGame = class FroggerGame {
         }
     }
 
+    hop(direction) {
+        if (this.frog.hopping || this.jumpCooldown > 0) return;
+
+        const jumpDistance = this.gridSize;
+
+        switch (direction) {
+            case 0: // up
+                this.frog.targetY = Math.max(0, this.frog.y - jumpDistance);
+                break;
+            case 1: // right
+                this.frog.targetX = Math.min(this.canvas.width, this.frog.x + jumpDistance);
+                break;
+            case 2: // down
+                this.frog.targetY = Math.min(this.canvas.height, this.frog.y + jumpDistance);
+                break;
+            case 3: // left
+                this.frog.targetX = Math.max(0, this.frog.x - jumpDistance);
+                break;
+        }
+
+        this.frog.direction = direction;
+        this.frog.hopping = true;
+        this.frog.hopProgress = 0;
+    }
+
+    updateHop() {
+        if (!this.frog.hopping) return;
+
+        this.frog.hopProgress += 0.15;
+
+        if (this.frog.hopProgress >= 1) {
+            this.frog.hopProgress = 1;
+            this.frog.hopping = false;
+            this.frog.x = this.frog.targetX;
+            this.frog.y = this.frog.targetY;
+            this.jumpCooldown = 10; // Kurze Pause nach dem Sprung
+        } else {
+            // Interpoliere Position mit Sprung-Animation
+            const t = this.frog.hopProgress;
+            this.frog.x = this.frog.x + (this.frog.targetX - this.frog.x) * 0.3;
+            this.frog.y = this.frog.y + (this.frog.targetY - this.frog.y) * 0.3;
+        }
+    }
+
     drawFrog() {
         const ctx = this.ctx;
         const f = this.frog;
         const s = f.size;
 
+        // Sprung-Effekt (Frosch hebt ab)
+        let jumpOffset = 0;
+        if (f.hopping) {
+            jumpOffset = -Math.sin(f.hopProgress * Math.PI) * 15;
+        }
+
         ctx.save();
-        ctx.translate(f.x, f.y);
+        ctx.translate(f.x, f.y + jumpOffset);
         ctx.rotate(f.direction * Math.PI / 2);
 
         ctx.fillStyle = this.colors.frog;
@@ -100,10 +160,9 @@ window.FroggerGame = class FroggerGame {
         ctx.arc(s * 0.15, -s * 0.5, s * 0.08, 0, Math.PI * 2);
         ctx.fill();
 
-        // Beine
+        // Beine (spreizen beim Sprung)
         ctx.fillStyle = this.colors.frog;
-        const legFrame = Math.floor(Date.now() / 200) % 2;
-        const legSpread = legFrame === 0 ? 0.6 : 0.4;
+        const legSpread = f.hopping ? 0.7 : 0.5;
 
         // Hinterbeine
         ctx.fillRect(-s * legSpread, s * 0.1, s * 0.3, s * 0.5);
@@ -177,44 +236,61 @@ window.FroggerGame = class FroggerGame {
 
     update() {
         this.time++;
+
+        if (this.jumpCooldown > 0) {
+            this.jumpCooldown--;
+        }
+
+        // Update hop animation
+        this.updateHop();
+
         const f = this.frog;
 
         // Variante 0: Frosch hüpft nach oben
-        // Variante 1: Frosch bewegt sich seitlich
-        // Variante 2: Frosch reitet auf Baumstämmen
-        if (this.animationVariant === 0) {
-            if (this.time % 40 === 0) {
-                f.y -= 50;
-                f.direction = 0;
-                if (f.y < 50) {
-                    f.y = this.canvas.height - 40;
+        // Variante 1: Frosch hüpft seitlich
+        // Variante 2: Frosch hüpft nach oben und reitet auf Baumstämmen
+        if (!f.hopping && this.jumpCooldown === 0) {
+            if (this.animationVariant === 0) {
+                if (this.time % 50 === 0) {
+                    this.hop(0); // Hüpfe nach oben
+                    if (f.y < 50) {
+                        f.y = this.canvas.height - 60;
+                        f.targetY = f.y;
+                    }
+                }
+            } else if (this.animationVariant === 1) {
+                if (this.time % 40 === 0) {
+                    this.hop(1); // Hüpfe nach rechts
+                    if (f.x > this.canvas.width - this.gridSize) {
+                        f.x = 0;
+                        f.targetX = 0;
+                        f.y = this.canvas.height - 60;
+                        f.targetY = f.y;
+                    }
+                }
+            } else if (this.animationVariant === 2) {
+                // Hüpfe nach oben und reite auf Baumstämmen
+                if (this.time % 60 === 0 && f.y > 200) {
+                    this.hop(0);
+                }
+
+                if (f.y < 100) {
+                    f.y = this.canvas.height - 60;
+                    f.targetY = f.y;
+                    f.x = this.canvas.width / 2;
+                    f.targetX = f.x;
                 }
             }
-        } else if (this.animationVariant === 1) {
-            f.x += 2;
-            f.direction = 1;
-            if (f.x > this.canvas.width) {
-                f.x = 0;
-                f.y = this.canvas.height - 40;
-            }
-        } else if (this.animationVariant === 2) {
-            // Frosch springt nach oben und reitet auf Baumstämmen
-            if (this.time % 60 === 0 && f.y > 200) {
-                f.y -= 50;
-                f.direction = 0;
-            }
+        }
 
-            // Check ob auf Baumstamm
+        // Auf Baumstamm reiten (nur wenn nicht am Springen)
+        if (!f.hopping && this.animationVariant === 2) {
             for (let log of this.logs) {
                 if (Math.abs(f.y - log.y) < 25 &&
                     f.x > log.x && f.x < log.x + log.width) {
                     f.x += log.speed;
+                    f.targetX = f.x;
                 }
-            }
-
-            if (f.y < 100) {
-                f.y = this.canvas.height - 40;
-                f.x = this.canvas.width / 2;
             }
         }
 

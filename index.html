@@ -150,6 +150,58 @@
             border-color: rgba(255, 255, 255, 0.5);
         }
 
+        #gameList {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .game-list-item {
+            color: #fff;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .game-list-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateX(5px);
+        }
+
+        .game-list-item.active {
+            background: rgba(255, 215, 0, 0.3);
+            border-color: #ffd700;
+            border-width: 2px;
+            font-weight: bold;
+        }
+
+        .game-list-item .key {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-right: 8px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .game-list-item.active .key {
+            background: rgba(255, 215, 0, 0.5);
+            color: #000;
+        }
+
         @media (max-width: 768px) {
             .logo {
                 font-size: 36px;
@@ -168,6 +220,22 @@
                 position: static;
                 margin-top: 40px;
                 align-items: center;
+            }
+
+            #gameList {
+                position: static;
+                margin-top: 20px;
+                align-items: center;
+            }
+
+            .game-list-item {
+                font-size: 13px;
+                padding: 6px 12px;
+            }
+
+            .game-list-item .key {
+                font-size: 11px;
+                padding: 1px 6px;
             }
         }
     </style>
@@ -201,6 +269,8 @@
         </div>
     </div>
 
+    <div id="gameList"></div>
+
     <footer>
         <a href="https://ruepp.info/imprint.html" target="_blank">📜 Impressum &amp; Urheberrecht</a>
         <a href="https://ruepp.info/dataprivacy.html" target="_blank">🔒 Datenschutzerklärung</a>
@@ -211,7 +281,7 @@
     <script src="pacman.js"></script>
     <script src="asteroids.js"></script>
     <script src="galaga.js"></script>
-    <script src="donkey-kong.js"></script>
+    <script src="qbert.js"></script>
     <script src="frogger.js"></script>
     <script src="centipede.js"></script>
     <script src="game-manager.js"></script>

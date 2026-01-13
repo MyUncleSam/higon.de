@@ -3,12 +3,22 @@ window.CentipedeGame = class CentipedeGame {
     constructor(canvas, ctx) {
         this.canvas = canvas;
         this.ctx = ctx;
+
+        // Skalierung basierend auf Bildschirmgröße
+        const scale = Math.min(canvas.width, canvas.height) / 600;
+        this.segmentSize = Math.floor(15 * scale);
+        this.mushroomSize = Math.floor(12 * scale);
+        this.playerSize = Math.floor(20 * scale);
+        this.gridSize = Math.floor(30 * scale);
+        this.bulletWidth = Math.max(2, Math.floor(4 * scale));
+        this.bulletHeight = Math.max(6, Math.floor(15 * scale));
+
         this.centipede = [];
         this.mushrooms = [];
         this.bullets = [];
         this.player = {
             x: canvas.width / 2,
-            y: canvas.height - 80
+            y: canvas.height - canvas.height * 0.12
         };
         this.animationFrame = null;
         this.animationVariant = Math.floor(Math.random() * 3);
@@ -29,12 +39,11 @@ window.CentipedeGame = class CentipedeGame {
 
     initMushrooms() {
         const count = 30;
-        const gridSize = 30;
 
         for (let i = 0; i < count; i++) {
             this.mushrooms.push({
-                x: Math.floor(Math.random() * (this.canvas.width / gridSize)) * gridSize,
-                y: Math.floor(Math.random() * (this.canvas.height * 0.7 / gridSize)) * gridSize,
+                x: Math.floor(Math.random() * (this.canvas.width / this.gridSize)) * this.gridSize,
+                y: Math.floor(Math.random() * (this.canvas.height * 0.7 / this.gridSize)) * this.gridSize,
                 health: 3
             });
         }
@@ -43,16 +52,15 @@ window.CentipedeGame = class CentipedeGame {
     initCentipede() {
         const segmentCount = 12;
         const startX = 0;
-        const startY = 30;
-        const segmentSize = 15;
+        const startY = this.canvas.height * 0.05;
 
         for (let i = 0; i < segmentCount; i++) {
             this.centipede.push({
-                x: startX - i * segmentSize * 2,
+                x: startX - i * this.segmentSize * 2,
                 y: startY,
-                vx: 2,
+                vx: Math.max(1.5, this.segmentSize * 0.13),
                 vy: 0,
-                size: segmentSize,
+                size: this.segmentSize,
                 isHead: i === 0
             });
         }
@@ -61,7 +69,7 @@ window.CentipedeGame = class CentipedeGame {
     drawPlayer() {
         const ctx = this.ctx;
         const p = this.player;
-        const size = 20;
+        const size = this.playerSize;
 
         ctx.fillStyle = this.colors.player;
 
@@ -137,7 +145,7 @@ window.CentipedeGame = class CentipedeGame {
 
     drawMushroom(mushroom) {
         const ctx = this.ctx;
-        const size = 12;
+        const size = this.mushroomSize;
 
         // Hut
         ctx.fillStyle = this.colors.mushroom;
@@ -160,7 +168,7 @@ window.CentipedeGame = class CentipedeGame {
 
     drawBullet(bullet) {
         this.ctx.fillStyle = this.colors.bullet;
-        this.ctx.fillRect(bullet.x - 2, bullet.y, 4, 15);
+        this.ctx.fillRect(bullet.x - this.bulletWidth / 2, bullet.y, this.bulletWidth, this.bulletHeight);
     }
 
     update() {
@@ -184,7 +192,8 @@ window.CentipedeGame = class CentipedeGame {
             }
 
             for (let mushroom of this.mushrooms) {
-                if (Math.abs(head.x - mushroom.x) < 20 && Math.abs(head.y - mushroom.y) < 20) {
+                const collisionDist = this.segmentSize + this.mushroomSize;
+                if (Math.abs(head.x - mushroom.x) < collisionDist && Math.abs(head.y - mushroom.y) < collisionDist) {
                     shouldMoveDown = true;
                     break;
                 }
@@ -192,16 +201,17 @@ window.CentipedeGame = class CentipedeGame {
 
             if (shouldMoveDown) {
                 head.vx *= -1;
-                head.y += 30;
+                head.y += this.gridSize;
 
-                if (head.y > this.canvas.height - 100) {
-                    head.y = 30;
+                if (head.y > this.canvas.height - this.canvas.height * 0.2) {
+                    head.y = this.canvas.height * 0.05;
                 }
             }
         } else if (this.animationVariant === 1) {
             // Spiralbewegung
             const angle = this.time * 0.05;
-            const radius = 100 + Math.sin(this.time * 0.02) * 50;
+            const baseRadius = Math.min(this.canvas.width, this.canvas.height) * 0.2;
+            const radius = baseRadius + Math.sin(this.time * 0.02) * baseRadius * 0.5;
             const centerX = this.canvas.width / 2;
             const centerY = this.canvas.height / 3;
 
@@ -210,7 +220,7 @@ window.CentipedeGame = class CentipedeGame {
         } else {
             // Schnelles Zickzack
             head.x += head.vx * 2;
-            head.y += Math.sin(this.time * 0.1) * 3;
+            head.y += Math.sin(this.time * 0.1) * (this.segmentSize * 0.2);
 
             if (head.x <= 0 || head.x >= this.canvas.width) {
                 head.vx *= -1;
@@ -234,12 +244,15 @@ window.CentipedeGame = class CentipedeGame {
         }
 
         // Spieler bewegt sich
+        const playerSpeed = Math.max(1.5, this.playerSize * 0.1);
+        const playerRange = Math.min(this.canvas.width * 0.4, 200);
+
         if (this.animationVariant === 0) {
-            this.player.x += Math.sin(this.time * 0.03) * 2;
+            this.player.x += Math.sin(this.time * 0.03) * playerSpeed;
         } else if (this.animationVariant === 1) {
-            this.player.x = this.canvas.width / 2 + Math.cos(this.time * 0.02) * 200;
+            this.player.x = this.canvas.width / 2 + Math.cos(this.time * 0.02) * playerRange;
         } else {
-            this.player.x += 3;
+            this.player.x += playerSpeed * 1.5;
             if (this.player.x > this.canvas.width) this.player.x = 0;
         }
 
@@ -247,13 +260,14 @@ window.CentipedeGame = class CentipedeGame {
         if (Math.random() < 0.06) {
             this.bullets.push({
                 x: this.player.x,
-                y: this.player.y - 20
+                y: this.player.y - this.playerSize
             });
         }
 
         // Bullets bewegen
+        const bulletSpeed = Math.max(6, this.playerSize * 0.4);
         this.bullets = this.bullets.filter(bullet => {
-            bullet.y -= 8;
+            bullet.y -= bulletSpeed;
             return bullet.y > 0;
         });
 
@@ -269,8 +283,8 @@ window.CentipedeGame = class CentipedeGame {
 
                     // Pilz spawnen
                     this.mushrooms.push({
-                        x: Math.floor(segment.x / 30) * 30,
-                        y: Math.floor(segment.y / 30) * 30,
+                        x: Math.floor(segment.x / this.gridSize) * this.gridSize,
+                        y: Math.floor(segment.y / this.gridSize) * this.gridSize,
                         health: 3
                     });
 
@@ -285,7 +299,8 @@ window.CentipedeGame = class CentipedeGame {
             // Pilze treffen
             for (let i = 0; i < this.mushrooms.length; i++) {
                 const mushroom = this.mushrooms[i];
-                if (Math.abs(bullet.x - mushroom.x) < 15 && Math.abs(bullet.y - mushroom.y) < 15) {
+                const hitDist = this.mushroomSize * 1.2;
+                if (Math.abs(bullet.x - mushroom.x) < hitDist && Math.abs(bullet.y - mushroom.y) < hitDist) {
                     mushroom.health--;
                     bullet.y = -100;
                     if (mushroom.health <= 0) {

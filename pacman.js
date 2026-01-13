@@ -4,21 +4,15 @@ window.PacManGame = class PacManGame {
         this.canvas = canvas;
         this.ctx = ctx;
 
-        // Grid-System
-        this.cellSize = 25;
+        // Grid-System - skaliert basierend auf Bildschirmgröße
+        // Verwende ~28 Zellen für die kleinere Dimension für authentisches Gefühl
+        const minDimension = Math.min(canvas.width, canvas.height);
+        this.cellSize = Math.floor(minDimension / 28);
         this.cols = Math.floor(canvas.width / this.cellSize);
         this.rows = Math.floor(canvas.height / this.cellSize);
 
-        this.pacman = {
-            gridX: 1,
-            gridY: 1,
-            x: this.cellSize * 1.5,
-            y: this.cellSize * 1.5,
-            radius: this.cellSize * 0.4,
-            direction: 0, // 0=right, 1=down, 2=left, 3=up
-            nextDirection: 0,
-            speed: 2
-        };
+        // Pac-Man wird später mit zufälliger Position initialisiert
+        this.pacman = null;
 
         this.ghosts = [];
         this.dots = [];
@@ -41,8 +35,24 @@ window.PacManGame = class PacManGame {
         };
 
         this.initMaze();
-        this.initDots();
+        this.initPacman();
         this.initGhosts();
+        this.initDots();
+    }
+
+    initPacman() {
+        // Finde zufällige Startposition für Pac-Man
+        const pos = this.findRandomFreePosition();
+        this.pacman = {
+            gridX: pos.x,
+            gridY: pos.y,
+            x: pos.x * this.cellSize + this.cellSize / 2,
+            y: pos.y * this.cellSize + this.cellSize / 2,
+            radius: this.cellSize * 0.4,
+            direction: 0, // 0=right, 1=down, 2=left, 3=up
+            nextDirection: 0,
+            speed: 2
+        };
     }
 
     initMaze() {
@@ -61,29 +71,67 @@ window.PacManGame = class PacManGame {
             }
         }
 
-        // Interne Labyrinth-Struktur (symmetrisch wie im Original)
+        const midX = Math.floor(this.cols / 2);
+        const midY = Math.floor(this.rows / 2);
+
+        // Interne Labyrinth-Struktur (mehr Wände für komplexeres Labyrinth)
         const wallPatterns = [
-            // Horizontale Blöcke
-            { x: 2, y: 2, w: 3, h: 2 },
-            { x: this.cols - 5, y: 2, w: 3, h: 2 },
-            { x: 2, y: this.rows - 4, w: 3, h: 2 },
-            { x: this.cols - 5, y: this.rows - 4, w: 3, h: 2 },
+            // Ecken - Horizontale Blöcke
+            { x: 2, y: 2, w: 4, h: 2 },
+            { x: this.cols - 6, y: 2, w: 4, h: 2 },
+            { x: 2, y: this.rows - 4, w: 4, h: 2 },
+            { x: this.cols - 6, y: this.rows - 4, w: 4, h: 2 },
 
-            // Zentrale Strukturen
-            { x: Math.floor(this.cols / 2) - 3, y: Math.floor(this.rows / 2) - 2, w: 6, h: 1 },
-            { x: Math.floor(this.cols / 2) - 3, y: Math.floor(this.rows / 2) + 1, w: 6, h: 1 },
+            // Obere vertikale Blöcke
+            { x: 2, y: 5, w: 2, h: 4 },
+            { x: this.cols - 4, y: 5, w: 2, h: 4 },
 
-            // Vertikale Blöcke
-            { x: 6, y: 5, w: 2, h: 4 },
-            { x: this.cols - 8, y: 5, w: 2, h: 4 },
+            // Mittlere vertikale Blöcke
+            { x: 7, y: 6, w: 2, h: 5 },
+            { x: this.cols - 9, y: 6, w: 2, h: 5 },
 
-            // T-Formen
-            { x: Math.floor(this.cols / 2) - 1, y: 2, w: 2, h: 3 },
-            { x: Math.floor(this.cols / 2) - 1, y: this.rows - 5, w: 2, h: 3 },
+            // Zentrale Box (Geister-Haus)
+            { x: midX - 4, y: midY - 2, w: 8, h: 1 },
+            { x: midX - 4, y: midY - 2, w: 1, h: 4 },
+            { x: midX + 3, y: midY - 2, w: 1, h: 4 },
+            { x: midX - 4, y: midY + 1, w: 8, h: 1 },
 
-            // L-Formen
-            { x: 2, y: Math.floor(this.rows / 2) - 1, w: 4, h: 2 },
-            { x: this.cols - 6, y: Math.floor(this.rows / 2) - 1, w: 4, h: 2 },
+            // T-Formen oben
+            { x: midX - 1, y: 2, w: 2, h: 4 },
+            { x: midX - 3, y: 5, w: 6, h: 1 },
+
+            // T-Formen unten
+            { x: midX - 1, y: this.rows - 6, w: 2, h: 4 },
+            { x: midX - 3, y: this.rows - 6, w: 6, h: 1 },
+
+            // Zusätzliche L-Formen links
+            { x: 2, y: midY - 4, w: 3, h: 2 },
+            { x: 4, y: midY - 2, w: 1, h: 3 },
+
+            // Zusätzliche L-Formen rechts
+            { x: this.cols - 5, y: midY - 4, w: 3, h: 2 },
+            { x: this.cols - 5, y: midY - 2, w: 1, h: 3 },
+
+            // Kleine Blöcke verteilt
+            { x: 10, y: 3, w: 2, h: 2 },
+            { x: this.cols - 12, y: 3, w: 2, h: 2 },
+            { x: 10, y: this.rows - 5, w: 2, h: 2 },
+            { x: this.cols - 12, y: this.rows - 5, w: 2, h: 2 },
+
+            // Zusätzliche zentrale Hindernisse
+            { x: midX - 6, y: midY + 3, w: 3, h: 2 },
+            { x: midX + 3, y: midY + 3, w: 3, h: 2 },
+            { x: midX - 2, y: midY + 4, w: 4, h: 1 },
+
+            // Weitere vertikale Wände
+            { x: 13, y: 10, w: 1, h: 4 },
+            { x: this.cols - 14, y: 10, w: 1, h: 4 },
+
+            // Diagonale Strukturen simulieren
+            { x: 8, y: midY - 6, w: 3, h: 1 },
+            { x: 9, y: midY - 5, w: 2, h: 1 },
+            { x: this.cols - 11, y: midY - 6, w: 3, h: 1 },
+            { x: this.cols - 11, y: midY - 5, w: 2, h: 1 },
         ];
 
         // Wände hinzufügen
@@ -98,6 +146,50 @@ window.PacManGame = class PacManGame {
                 }
             }
         }
+    }
+
+    // Finde zufällige freie Position im Labyrinth
+    findRandomFreePosition() {
+        const freePositions = [];
+        for (let y = 1; y < this.rows - 1; y++) {
+            for (let x = 1; x < this.cols - 1; x++) {
+                if (this.maze[y][x] === 0) {
+                    freePositions.push({ x, y });
+                }
+            }
+        }
+        if (freePositions.length === 0) {
+            return { x: 1, y: 1 };
+        }
+        return freePositions[Math.floor(Math.random() * freePositions.length)];
+    }
+
+    // Berechne Manhattan-Distanz
+    manhattanDistance(x1, y1, x2, y2) {
+        return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+    }
+
+    // Finde zufällige Position weit weg von einer anderen Position
+    findRandomPositionAwayFrom(avoidX, avoidY, minDistance) {
+        const freePositions = [];
+        for (let y = 1; y < this.rows - 1; y++) {
+            for (let x = 1; x < this.cols - 1; x++) {
+                if (this.maze[y][x] === 0) {
+                    const dist = this.manhattanDistance(x, y, avoidX, avoidY);
+                    if (dist >= minDistance) {
+                        freePositions.push({ x, y, dist });
+                    }
+                }
+            }
+        }
+        if (freePositions.length === 0) {
+            return this.findRandomFreePosition();
+        }
+        // Bevorzuge weiter entfernte Positionen
+        freePositions.sort((a, b) => b.dist - a.dist);
+        const topThird = Math.floor(freePositions.length / 3);
+        const idx = Math.floor(Math.random() * Math.max(1, topThird));
+        return freePositions[idx];
     }
 
     initDots() {
@@ -139,15 +231,50 @@ window.PacManGame = class PacManGame {
 
     initGhosts() {
         const colors = this.colors.ghost;
-        const centerX = Math.floor(this.cols / 2);
-        const centerY = Math.floor(this.rows / 2);
+        const minDistanceFromPacman = Math.floor(Math.min(this.cols, this.rows) * 0.3);
+        const minDistanceBetweenGhosts = 5;
 
         for (let i = 0; i < 4; i++) {
+            let pos;
+            let attempts = 0;
+            const maxAttempts = 100;
+
+            // Finde Position weit weg von Pac-Man
+            do {
+                pos = this.findRandomPositionAwayFrom(
+                    this.pacman.gridX,
+                    this.pacman.gridY,
+                    minDistanceFromPacman
+                );
+
+                // Prüfe Abstand zu anderen Geistern
+                let tooClose = false;
+                for (let ghost of this.ghosts) {
+                    const dist = this.manhattanDistance(pos.x, pos.y, ghost.gridX, ghost.gridY);
+                    if (dist < minDistanceBetweenGhosts) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+
+                if (!tooClose) break;
+                attempts++;
+            } while (attempts < maxAttempts);
+
+            // Falls keine gute Position gefunden, nimm was wir haben
+            if (attempts >= maxAttempts) {
+                pos = this.findRandomPositionAwayFrom(
+                    this.pacman.gridX,
+                    this.pacman.gridY,
+                    minDistanceFromPacman
+                );
+            }
+
             this.ghosts.push({
-                gridX: centerX + (i % 2 === 0 ? -1 : 1),
-                gridY: centerY + (i < 2 ? -1 : 1),
-                x: (centerX + (i % 2 === 0 ? -1 : 1)) * this.cellSize + this.cellSize / 2,
-                y: (centerY + (i < 2 ? -1 : 1)) * this.cellSize + this.cellSize / 2,
+                gridX: pos.x,
+                gridY: pos.y,
+                x: pos.x * this.cellSize + this.cellSize / 2,
+                y: pos.y * this.cellSize + this.cellSize / 2,
                 color: colors[i],
                 direction: Math.floor(Math.random() * 4),
                 speed: 1.5,
@@ -166,7 +293,7 @@ window.PacManGame = class PacManGame {
     drawMaze() {
         const ctx = this.ctx;
         ctx.strokeStyle = this.colors.wall;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = Math.max(2, this.cellSize * 0.12);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -279,13 +406,15 @@ window.PacManGame = class PacManGame {
 
     drawDots() {
         const ctx = this.ctx;
+        const dotSize = Math.max(2, this.cellSize * 0.12);
+        const pelletSize = Math.max(4, this.cellSize * 0.28);
 
         // Normale Dots
         ctx.fillStyle = this.colors.dot;
         for (let dot of this.dots) {
             if (!dot.eaten) {
                 ctx.beginPath();
-                ctx.arc(dot.x, dot.y, 3, 0, Math.PI * 2);
+                ctx.arc(dot.x, dot.y, dotSize, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
@@ -297,7 +426,7 @@ window.PacManGame = class PacManGame {
             for (let pellet of this.powerPellets) {
                 if (!pellet.eaten) {
                     ctx.beginPath();
-                    ctx.arc(pellet.x, pellet.y, 7, 0, Math.PI * 2);
+                    ctx.arc(pellet.x, pellet.y, pelletSize, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
