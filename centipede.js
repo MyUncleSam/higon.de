@@ -24,6 +24,10 @@ window.CentipedeGame = class CentipedeGame {
         this.animationVariant = Math.floor(Math.random() * 3);
         this.time = 0;
 
+        // Bewegungssteuerung
+        this.moveCounter = 0;
+        this.moveSpeed = 3; // Frames pro Gitterschritt
+
         this.colors = {
             bg: '#000000',
             centipedeHead: '#ff00ff',
@@ -51,15 +55,18 @@ window.CentipedeGame = class CentipedeGame {
 
     initCentipede() {
         const segmentCount = 12;
-        const startX = 0;
-        const startY = this.canvas.height * 0.05;
+        const startCol = 0;
+        const startRow = 1;
+
+        this.centipede = [];
 
         for (let i = 0; i < segmentCount; i++) {
             this.centipede.push({
-                x: startX - i * this.segmentSize * 2,
-                y: startY,
-                vx: Math.max(1.5, this.segmentSize * 0.13),
-                vy: 0,
+                gridX: startCol - i,
+                gridY: startRow,
+                x: (startCol - i) * this.gridSize,
+                y: startRow * this.gridSize,
+                direction: 1, // 1 = rechts, -1 = links
                 size: this.segmentSize,
                 isHead: i === 0
             });
@@ -173,73 +180,80 @@ window.CentipedeGame = class CentipedeGame {
 
     update() {
         this.time++;
+        this.moveCounter++;
 
-        // Variante 0: Normales Schlängeln
-        // Variante 1: Spiralbewegung
-        // Variante 2: Schnelle Zickzack-Bewegung
-        const head = this.centipede[0];
-        if (!head) return;
+        if (this.centipede.length === 0) return;
 
-        if (this.animationVariant === 0) {
-            // Normale Centipede-Bewegung
-            head.x += head.vx;
+        // Bewege alle Segmente in diskreten Grid-Schritten
+        if (this.moveCounter >= this.moveSpeed) {
+            this.moveCounter = 0;
 
-            // Kollision mit Wand oder Pilz
-            let shouldMoveDown = false;
+            // Berechne Anzahl Spalten im Grid
+            const cols = Math.floor(this.canvas.width / this.gridSize);
+            const rows = Math.floor(this.canvas.height / this.gridSize);
 
-            if (head.x <= 0 || head.x >= this.canvas.width) {
-                shouldMoveDown = true;
-            }
+            // Speichere alle alten Positionen BEVOR wir irgendwas bewegen
+            const oldPositions = this.centipede.map(seg => ({
+                gridX: seg.gridX,
+                gridY: seg.gridY
+            }));
 
-            for (let mushroom of this.mushrooms) {
-                const collisionDist = this.segmentSize + this.mushroomSize;
-                if (Math.abs(head.x - mushroom.x) < collisionDist && Math.abs(head.y - mushroom.y) < collisionDist) {
-                    shouldMoveDown = true;
-                    break;
+            // Bewege jedes Segment
+            for (let i = 0; i < this.centipede.length; i++) {
+                const segment = this.centipede[i];
+
+                if (segment.isHead) {
+                    // Kopf bewegt sich selbstständig
+                    let shouldMoveDown = false;
+
+                    // Nächste Position berechnen
+                    const nextGridX = segment.gridX + segment.direction;
+
+                    // Wand-Kollision
+                    if (nextGridX < 0 || nextGridX >= cols) {
+                        shouldMoveDown = true;
+                    }
+
+                    // Pilz-Kollision prüfen
+                    if (!shouldMoveDown) {
+                        for (let mushroom of this.mushrooms) {
+                            const mushroomGridX = Math.floor(mushroom.x / this.gridSize);
+                            const mushroomGridY = Math.floor(mushroom.y / this.gridSize);
+
+                            if (mushroomGridX === nextGridX && mushroomGridY === segment.gridY) {
+                                shouldMoveDown = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (shouldMoveDown) {
+                        // Bewege nach unten und wechsle Richtung
+                        segment.gridY += 1;
+                        segment.direction *= -1;
+
+                        // Wrap around wenn zu weit unten
+                        if (segment.gridY >= rows - 2) {
+                            segment.gridY = 1;
+                        }
+                    } else {
+                        // Bewege horizontal
+                        segment.gridX += segment.direction;
+                    }
+
+                    // Aktualisiere pixel-Position
+                    segment.x = segment.gridX * this.gridSize;
+                    segment.y = segment.gridY * this.gridSize;
+                } else {
+                    // Körpersegmente folgen dem vorherigen Segment
+                    // Nimm die ALTE Position des vorherigen Segments
+                    if (i > 0 && oldPositions[i - 1]) {
+                        segment.gridX = oldPositions[i - 1].gridX;
+                        segment.gridY = oldPositions[i - 1].gridY;
+                        segment.x = segment.gridX * this.gridSize;
+                        segment.y = segment.gridY * this.gridSize;
+                    }
                 }
-            }
-
-            if (shouldMoveDown) {
-                head.vx *= -1;
-                head.y += this.gridSize;
-
-                if (head.y > this.canvas.height - this.canvas.height * 0.2) {
-                    head.y = this.canvas.height * 0.05;
-                }
-            }
-        } else if (this.animationVariant === 1) {
-            // Spiralbewegung
-            const angle = this.time * 0.05;
-            const baseRadius = Math.min(this.canvas.width, this.canvas.height) * 0.2;
-            const radius = baseRadius + Math.sin(this.time * 0.02) * baseRadius * 0.5;
-            const centerX = this.canvas.width / 2;
-            const centerY = this.canvas.height / 3;
-
-            head.x = centerX + Math.cos(angle) * radius;
-            head.y = centerY + Math.sin(angle) * radius;
-        } else {
-            // Schnelles Zickzack
-            head.x += head.vx * 2;
-            head.y += Math.sin(this.time * 0.1) * (this.segmentSize * 0.2);
-
-            if (head.x <= 0 || head.x >= this.canvas.width) {
-                head.vx *= -1;
-            }
-        }
-
-        // Körpersegmente folgen dem Kopf
-        for (let i = 1; i < this.centipede.length; i++) {
-            const prev = this.centipede[i - 1];
-            const current = this.centipede[i];
-            const dx = prev.x - current.x;
-            const dy = prev.y - current.y;
-            const distance = Math.hypot(dx, dy);
-            const targetDistance = current.size * 1.8;
-
-            if (distance > targetDistance) {
-                const ratio = (distance - targetDistance) / distance;
-                current.x += dx * ratio * 0.2;
-                current.y += dy * ratio * 0.2;
             }
         }
 
@@ -277,21 +291,30 @@ window.CentipedeGame = class CentipedeGame {
             for (let i = 0; i < this.centipede.length; i++) {
                 const segment = this.centipede[i];
                 const dist = Math.hypot(bullet.x - segment.x, bullet.y - segment.y);
-                if (dist < segment.size) {
-                    this.centipede.splice(i, 1);
-                    bullet.y = -100;
-
-                    // Pilz spawnen
+                if (dist < segment.size + this.gridSize * 0.3) {
+                    // Pilz spawnen an Grid-Position
                     this.mushrooms.push({
-                        x: Math.floor(segment.x / this.gridSize) * this.gridSize,
-                        y: Math.floor(segment.y / this.gridSize) * this.gridSize,
+                        x: segment.gridX * this.gridSize,
+                        y: segment.gridY * this.gridSize,
                         health: 3
                     });
 
-                    // Neue Kopfsegmente wenn geteilt
-                    if (i > 0 && i < this.centipede.length) {
-                        this.centipede[i].isHead = true;
+                    // Wenn das Segment ein Kopf war und es noch weitere Segmente gibt,
+                    // wird das nächste Segment zum neuen Kopf
+                    if (i === 0 && this.centipede.length > 1) {
+                        this.centipede[1].isHead = true;
+                        // Kopf bekommt eigene Richtung (könnte zufällig sein)
+                        this.centipede[1].direction = Math.random() < 0.5 ? 1 : -1;
                     }
+                    // Wenn Segment in der Mitte getroffen wurde, wird das nachfolgende Segment ein neuer Kopf
+                    else if (i > 0 && i < this.centipede.length - 1) {
+                        this.centipede[i + 1].isHead = true;
+                        this.centipede[i + 1].direction = Math.random() < 0.5 ? 1 : -1;
+                    }
+
+                    // Entferne getroffenes Segment
+                    this.centipede.splice(i, 1);
+                    bullet.y = -100;
                     break;
                 }
             }
