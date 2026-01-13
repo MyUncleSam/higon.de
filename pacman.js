@@ -310,7 +310,7 @@ window.PacManGame = class PacManGame {
                 y: pos.y * this.cellSize + this.cellSize / 2,
                 color: colors[i],
                 direction: validDirection, // Gültige Startrichtung statt zufälliger
-                speed: 1.5,
+                speed: 2.0, // Muss >= 2.0 sein um "at center" threshold zu entkommen
                 scared: false
             });
         }
@@ -525,16 +525,29 @@ window.PacManGame = class PacManGame {
                     let bestDir = p.direction;
                     let bestDist = Infinity;
 
-                    for (let dir of validDirs) {
+                    // Vermeide 180-Grad Wendungen - entferne die entgegengesetzte Richtung
+                    const oppositeDir = (p.direction + 2) % 4;
+                    const validNonOpposite = validDirs.filter(d => d !== oppositeDir);
+
+                    // Nutze validNonOpposite wenn möglich, sonst alle Richtungen
+                    const dirsToCheck = validNonOpposite.length > 0 ? validNonOpposite : validDirs;
+
+                    for (let dir of dirsToCheck) {
                         const testDir = directions[dir];
                         const testX = p.gridX + testDir.dx;
                         const testY = p.gridY + testDir.dy;
 
                         // Distanz zum Ziel von dieser Position
-                        const distToTarget = Math.hypot(
+                        let distToTarget = Math.hypot(
                             targetDot.gridX - testX,
                             targetDot.gridY - testY
                         );
+
+                        // Bonus für die aktuelle Richtung (Hysterese-Effekt)
+                        // Dies verhindert ständiges Richtungswechseln bei gleichen Distanzen
+                        if (dir === p.direction) {
+                            distToTarget *= 0.9; // 10% Bonus für weitermachen
+                        }
 
                         if (distToTarget < bestDist) {
                             bestDist = distToTarget;
@@ -602,7 +615,7 @@ window.PacManGame = class PacManGame {
         const distToCenter = Math.hypot(ghost.x - centerX, ghost.y - centerY);
         const atCenter = distToCenter < 2;
 
-        // Am Grid-Center: Entscheide neue Richtung
+        // Am Grid-Center: Entscheide neue Richtung falls nötig
         if (atCenter) {
             ghost.x = centerX;
             ghost.y = centerY;
@@ -611,6 +624,7 @@ window.PacManGame = class PacManGame {
             const currentDir = directions[ghost.direction];
             const nextGridX = ghost.gridX + currentDir.dx;
             const nextGridY = ghost.gridY + currentDir.dy;
+            const canContinue = this.canMove(nextGridX, nextGridY);
 
             // Finde alle gültigen Richtungen
             const validDirs = [];
@@ -623,48 +637,24 @@ window.PacManGame = class PacManGame {
                 }
             }
 
-            // Wenn mehr als 1 Richtung möglich (Kreuzung) ODER aktuelle Richtung blockiert
-            const isBlocked = !this.canMove(nextGridX, nextGridY);
-            const atIntersection = validDirs.length > 1;
-            const shouldDecide = isBlocked || (atIntersection && Math.random() < 0.2);
+            // Wenn blockiert ODER an einer Kreuzung (mehr als 2 Richtungen möglich)
+            // Bei Kreuzung: zufällige Entscheidung mit 30% Chance
+            const isBlocked = !canContinue;
+            const atIntersection = validDirs.length > 2;
+            const shouldChangeDirection = isBlocked || (atIntersection && Math.random() < 0.3);
 
-            if (shouldDecide && validDirs.length > 0) {
-                if (this.animationVariant === 2 && !ghost.scared) {
-                    // Variante 2: Verfolge Pac-Man intelligent
-                    let bestDir = ghost.direction;
-                    let bestDist = Infinity;
+            if (shouldChangeDirection && validDirs.length > 0) {
+                // Entferne die entgegengesetzte Richtung (vermeidet 180° Wendung)
+                const oppositeDir = (ghost.direction + 2) % 4;
+                const notOpposite = validDirs.filter(d => d !== oppositeDir);
 
-                    for (let testDir of validDirs) {
-                        const td = directions[testDir];
-                        const testX = ghost.gridX + td.dx;
-                        const testY = ghost.gridY + td.dy;
-
-                        // Distanz zu Pac-Man von dieser Position
-                        const distToPacman = Math.hypot(
-                            this.pacman.gridX - testX,
-                            this.pacman.gridY - testY
-                        );
-
-                        if (distToPacman < bestDist) {
-                            bestDist = distToPacman;
-                            bestDir = testDir;
-                        }
-                    }
-                    ghost.direction = bestDir;
-                } else {
-                    // Zufällige Richtung, aber bevorzuge nicht zurückgehen
-                    const oppositeDir = (ghost.direction + 2) % 4;
-                    const notOpposite = validDirs.filter(d => d !== oppositeDir);
-
-                    if (notOpposite.length > 0) {
-                        ghost.direction = notOpposite[Math.floor(Math.random() * notOpposite.length)];
-                    } else {
-                        ghost.direction = validDirs[0];
-                    }
+                // Wähle zufällig aus den verfügbaren Richtungen
+                if (notOpposite.length > 0) {
+                    ghost.direction = notOpposite[Math.floor(Math.random() * notOpposite.length)];
+                } else if (validDirs.length > 0) {
+                    // Nur wenn wir wirklich müssen, gehe zurück
+                    ghost.direction = validDirs[0];
                 }
-            } else if (isBlocked && validDirs.length > 0) {
-                // Notfall: Wenn blockiert, nimm irgendeine gültige Richtung
-                ghost.direction = validDirs[0];
             }
         }
 
@@ -682,10 +672,6 @@ window.PacManGame = class PacManGame {
             ghost.y = newY;
             ghost.gridX = newGridX;
             ghost.gridY = newGridY;
-        } else {
-            // Snap zum Grid wenn blockiert
-            ghost.x = centerX;
-            ghost.y = centerY;
         }
 
         // Tunnel wrap-around
