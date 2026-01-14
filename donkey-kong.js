@@ -23,34 +23,35 @@ window.DonkeyKongGame = class DonkeyKongGame {
 
         // Platform system (4 platforms with drop zones)
         // Each platform has drop zones where barrels can fall through
+        // Barrels alternate direction: right (top) -> left -> right -> left (bottom)
         this.platforms = [
             {
                 y: 0.80,
+                startX: 0.10,
+                endX: 0.90,
+                slopeRight: false,
+                dropZones: [0.15] // barrel falls off left edge into void
+            },
+            {
+                y: 0.60,
                 startX: 0.10,
                 endX: 0.90,
                 slopeRight: true,
                 dropZones: [0.85] // barrel falls off right edge
             },
             {
-                y: 0.60,
+                y: 0.40,
                 startX: 0.10,
                 endX: 0.90,
                 slopeRight: false,
                 dropZones: [0.15] // barrel falls off left edge
             },
             {
-                y: 0.40,
-                startX: 0.10,
-                endX: 0.90,
-                slopeRight: true,
-                dropZones: [0.85] // barrel falls off right edge
-            },
-            {
                 y: 0.20,
                 startX: 0.20,
                 endX: 0.80,
-                slopeRight: false,
-                dropZones: [] // Top platform - no drops
+                slopeRight: true,
+                dropZones: [0.85] // Top platform - barrel falls off right edge
             }
         ];
 
@@ -256,15 +257,17 @@ window.DonkeyKongGame = class DonkeyKongGame {
         const slopeAmount = 0.05;
 
         if (platform.slopeRight) {
-            return platform.y - progress * slopeAmount;
-        } else {
+            // Right side lower, so barrels roll down to the right
             return platform.y - (1 - progress) * slopeAmount;
+        } else {
+            // Left side lower, so barrels roll down to the left
+            return platform.y - progress * slopeAmount;
         }
     }
 
     spawnBarrel() {
         const topPlatform = this.platforms[3];
-        // Top platform slopes left (slopeRight: false), so barrel should roll left (negative vx)
+        // Barrel rolls in the direction of the platform slope
         this.barrels.push({
             x: this.donkeyKong.x + 0.08,
             y: topPlatform.y,
