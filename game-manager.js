@@ -19,7 +19,8 @@
         { name: 'Galaga', class: window.GalagaGame, key: '4' },
         { name: 'Frogger', class: window.FroggerGame, key: '5' },
         { name: 'Centipede', class: window.CentipedeGame, key: '6' },
-        { name: 'Q*bert', class: window.QbertGame, key: '7' }
+        { name: 'Q*bert', class: window.QbertGame, key: '7' },
+        { name: 'Donkey Kong', class: window.DonkeyKongGame, key: '8' }
     ];
 
     // Canvas-Größe an Fenster anpassen
