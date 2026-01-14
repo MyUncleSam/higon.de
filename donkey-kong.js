@@ -11,7 +11,7 @@ window.DonkeyKongGame = class DonkeyKongGame {
             mario: '#ff0000',
             marioBlue: '#0000ff',
             dk: '#8B4513',
-            girder: this.animationVariant === 0 ? '#ff69b4' : (this.animationVariant === 1 ? '#ff1493' : '#ff6347'),
+            girder: this.animationVariant === 0 ? '#ff0000' : (this.animationVariant === 1 ? '#cc0000' : '#dd2200'),
             barrel: '#d2691e',
             ladder: '#ffff00',
             pauline: '#ffb6c1',
@@ -401,32 +401,44 @@ window.DonkeyKongGame = class DonkeyKongGame {
         const w = this.canvas.width;
         const h = this.canvas.height;
 
-        this.ctx.lineWidth = 6 * this.scale;
+        const girderHeight = 10 * this.scale;
+        const lineWidth = 3 * this.scale;
 
         for (let i = 0; i < this.platforms.length; i++) {
             const platform = this.platforms[i];
             const startX = platform.startX * w;
             const endX = platform.endX * w;
 
-            // Draw sloped girder line
-            this.ctx.strokeStyle = this.colors.girder;
-            this.ctx.beginPath();
-
             const startY = this.getPlatformYAtX(i, platform.startX) * h;
             const endY = this.getPlatformYAtX(i, platform.endX) * h;
 
+            // Draw top girder line
+            this.ctx.strokeStyle = this.colors.girder;
+            this.ctx.lineWidth = lineWidth;
+            this.ctx.beginPath();
             this.ctx.moveTo(startX, startY);
             this.ctx.lineTo(endX, endY);
             this.ctx.stroke();
 
-            // Draw support beams
-            this.ctx.fillStyle = this.colors.girder;
-            const numBeams = 10;
-            for (let j = 0; j <= numBeams; j++) {
-                const progress = j / numBeams;
-                const beamX = startX + (endX - startX) * progress;
-                const beamY = startY + (endY - startY) * progress;
-                this.ctx.fillRect(beamX - 1 * this.scale, beamY, 2 * this.scale, 12 * this.scale);
+            // Draw bottom girder line
+            this.ctx.beginPath();
+            this.ctx.moveTo(startX, startY + girderHeight);
+            this.ctx.lineTo(endX, endY + girderHeight);
+            this.ctx.stroke();
+
+            // Draw vertical connecting supports
+            const numSupports = 20;
+            this.ctx.lineWidth = 2 * this.scale;
+            for (let j = 0; j <= numSupports; j++) {
+                const progress = j / numSupports;
+                const supportX = startX + (endX - startX) * progress;
+                const topY = startY + (endY - startY) * progress;
+                const bottomY = topY + girderHeight;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(supportX, topY);
+                this.ctx.lineTo(supportX, bottomY);
+                this.ctx.stroke();
             }
         }
     }
