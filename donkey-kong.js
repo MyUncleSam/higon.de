@@ -594,20 +594,48 @@ window.DonkeyKongGame = class DonkeyKongGame {
         for (const barrel of this.barrels) {
             const x = barrel.x * w;
             const y = barrel.y * h;
-            const size = barrel.size * this.scale;
+            const radius = barrel.size * this.scale * 0.5;
 
             this.ctx.save();
             this.ctx.translate(x, y);
-            this.ctx.rotate(barrel.rotation);
 
-            // Barrel body
+            // Barrel body (circle - side view)
             this.ctx.fillStyle = this.colors.barrel;
-            this.ctx.fillRect(-size * 0.5, -size * 0.5, size, size);
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            this.ctx.fill();
 
-            // Barrel stripes
+            // Darker edge/rim
+            this.ctx.strokeStyle = '#8B4513';
+            this.ctx.lineWidth = 2 * this.scale;
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            this.ctx.stroke();
+
+            // Rolling bands - these rotate with the barrel
+            this.ctx.strokeStyle = '#8B4513';
+            this.ctx.lineWidth = 2 * this.scale;
+
+            // Draw two bands that rotate
+            for (let i = 0; i < 2; i++) {
+                const angle = barrel.rotation + (i * Math.PI);
+                const bandY = Math.sin(angle) * radius * 0.5;
+                const bandWidth = Math.cos(angle);
+
+                // Only draw band when it's visible (facing us)
+                if (Math.abs(bandWidth) > 0.3) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-radius * 0.85, bandY);
+                    this.ctx.lineTo(radius * 0.85, bandY);
+                    this.ctx.stroke();
+                }
+            }
+
+            // Center hole/cap detail
             this.ctx.fillStyle = '#8B4513';
-            this.ctx.fillRect(-size * 0.5, -size * 0.3, size, size * 0.12);
-            this.ctx.fillRect(-size * 0.5, size * 0.18, size, size * 0.12);
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, radius * 0.2, 0, Math.PI * 2);
+            this.ctx.fill();
 
             this.ctx.restore();
         }
