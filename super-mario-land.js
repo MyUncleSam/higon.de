@@ -71,6 +71,9 @@ window.SuperMarioLandGame = class SuperMarioLandGame {
         this.frame = 0;
         this.isDead = false;
         this.deathTimer = 0;
+        this.deathAnimationPhase = 0;  // 0 = not dead, 1 = jumping up, 2 = falling, 3 = waiting
+        this.deathY = 0;
+        this.deathVY = 0;
 
         this.initLevel();
     }
@@ -313,12 +316,31 @@ window.SuperMarioLandGame = class SuperMarioLandGame {
     update() {
         this.frame++;
 
-        // Handle death state
+        // Handle death animation
         if (this.isDead) {
-            this.deathTimer++;
-            // Wait ~60 frames (1 second at 60fps), then restart
-            if (this.deathTimer >= 60) {
-                this.restartGame();
+            if (this.deathAnimationPhase === 1) {
+                // Phase 1: Pause briefly then jump up
+                this.deathTimer++;
+                if (this.deathTimer >= 20) {
+                    this.deathAnimationPhase = 2;
+                    this.deathVY = -12 * this.scale;  // Jump up
+                }
+            } else if (this.deathAnimationPhase === 2) {
+                // Phase 2: Mario jumps up and falls
+                this.deathVY += 0.5 * this.scale;  // Gravity
+                this.deathY += this.deathVY;
+
+                // Once fallen off screen, wait then restart
+                if (this.deathY > this.canvas.height + 100) {
+                    this.deathAnimationPhase = 3;
+                    this.deathTimer = 0;
+                }
+            } else if (this.deathAnimationPhase === 3) {
+                // Phase 3: Wait a moment then restart
+                this.deathTimer++;
+                if (this.deathTimer >= 40) {
+                    this.restartGame();
+                }
             }
             return;
         }
@@ -491,15 +513,22 @@ window.SuperMarioLandGame = class SuperMarioLandGame {
     }
 
     triggerDeath() {
-        // Mario fell - stop scrolling and wait before restart
+        // Mario fell - start death animation
         this.isDead = true;
         this.deathTimer = 0;
+        this.deathAnimationPhase = 1;
+        this.deathY = this.mario.y;  // Start from current position
+        this.deathVY = 0;
+        this.mario.state = 'dead';
     }
 
     restartGame() {
         // Reset all game state
         this.isDead = false;
         this.deathTimer = 0;
+        this.deathAnimationPhase = 0;
+        this.deathY = 0;
+        this.deathVY = 0;
         this.worldOffset = 0;
         this.chunks = [];
         this.nextChunkX = 0;
@@ -856,6 +885,11 @@ window.SuperMarioLandGame = class SuperMarioLandGame {
         let y = m.y;
         const s = this.scale;
 
+        // Death animation - draw at death position
+        if (this.isDead && this.deathAnimationPhase >= 1) {
+            y = this.deathY;
+        }
+
         // Jump squash/stretch
         let scaleX = 1;
         let scaleY = 1;
@@ -865,6 +899,10 @@ window.SuperMarioLandGame = class SuperMarioLandGame {
         } else if (m.state === 'falling') {
             scaleX = 1.1;
             scaleY = 0.9;
+        } else if (m.state === 'dead') {
+            // Death pose - no squash/stretch
+            scaleX = 1;
+            scaleY = 1;
         }
 
         ctx.save();
@@ -902,7 +940,16 @@ window.SuperMarioLandGame = class SuperMarioLandGame {
         ctx.fillRect(-w * 0.4, -h * 0.2, w * 0.8, h * 0.35);
 
         // Legs (animated when running)
-        if (m.state === 'running') {
+        if (m.state === 'dead') {
+            // Death pose - legs spread, arms up
+            ctx.fillRect(-w * 0.45, -h * 0.15 + h * 0.1, w * 0.35, h * 0.25);
+            ctx.fillRect(w * 0.1, -h * 0.15 + h * 0.1, w * 0.35, h * 0.25);
+
+            // Arms raised (skin color)
+            ctx.fillStyle = this.colors.skin;
+            ctx.fillRect(-w * 0.7, -h * 0.9, w * 0.25, h * 0.15);
+            ctx.fillRect(w * 0.45, -h * 0.9, w * 0.25, h * 0.15);
+        } else if (m.state === 'running') {
             const frame = m.animFrame;
             if (frame === 0) {
                 ctx.fillRect(-w * 0.35, -h * 0.15 + h * 0.15, w * 0.3, h * 0.25);
