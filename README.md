@@ -2,6 +2,8 @@
 
 A retro gaming-themed website featuring animated classic arcade games as an interactive background.
 
+**Note:** The games are purely decorative background animations and cannot be played. They are AI-driven demonstrations that provide a visual homage to the original classic arcade games.
+
 ## Features
 
 - **9 Classic Game Animations**: Pac-Man, Space Invaders, Asteroids, Galaga, Frogger, Centipede, Q*bert, Donkey Kong, and Super Mario Land
